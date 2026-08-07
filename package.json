@@ -1,6 +1,6 @@
 {
 	"name": "vscode-hacker-meta",
-	"version": "2026.8.7-1",
+	"version": "2026.8.7-2",
 	"description": "Meta tooling for hacking VS Code extensions: pack a project and install the VSIX into every install CLI on the machine (native VS Code, code-server, Remote-SSH server).",
 	"license": "MIT",
 	"repository": {

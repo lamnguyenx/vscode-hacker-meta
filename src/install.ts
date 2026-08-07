@@ -107,8 +107,8 @@ export function installVsix(options: InstallOptions): InstallResult {
 		throw new InstallError(`${vsix} not found.`);
 	}
 	const hook = options.hook ? resolve(options.hook) : undefined;
-	if (hook && !isExecutable(hook)) {
-		throw new InstallError(`hook ${hook} is not executable.`);
+	if (hook && !existsSync(hook)) {
+		throw new InstallError(`hook ${hook} not found.`);
 	}
 
 	const { publisher, name, version } = readManifestIdentity(vsix);
@@ -132,7 +132,10 @@ export function installVsix(options: InstallOptions): InstallResult {
 		if (!hook) {
 			return true;
 		}
-		const h = spawnSync(hook, [target], { stdio: 'inherit' });
+		// A hook that lost its exec bit (fresh git clones default to 644)
+		// still runs via bash.
+		const cmd = isExecutable(hook) ? [hook, target] : ['bash', hook, target];
+		const h = spawnSync(cmd[0], cmd.slice(1), { stdio: 'inherit' });
 		if (h.status !== 0) {
 			warn(result.warnings, `post-install hook rejected ${target}`);
 			return false;
