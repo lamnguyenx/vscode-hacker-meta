@@ -1,0 +1,29 @@
+{
+  "folders": [
+    {
+      "path": ".",
+      "name": "vscode-hacker-meta"
+    },
+    {
+      "path": "_refs/vscode-eink-60hz",
+      "name": "vscode-eink-60hz"
+    },
+    {
+      "path": "_refs/vscode-hacker-browser",
+      "name": "vscode-hacker-browser"
+    },
+    {
+      "path": "_refs/vscode-hacker-markdown",
+      "name": "vscode-hacker-markdown"
+    },
+    {
+      "path": "_refs/vscode-hacker-path-picker",
+      "name": "vscode-hacker-path-picker"
+    },
+    {
+      "path": "_refs/vscode-hacker-stats-bar",
+      "name": "vscode-hacker-stats-bar"
+    }
+  ],
+  "settings": {}
+}

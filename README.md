@@ -1,63 +1,55 @@
 # vscode-hacker-meta
 
-Meta tooling for hacking VS Code extensions: pack a project and install the
-VSIX into **every** install CLI available on the machine — native VS Code,
-code-server, and the Remote-SSH server (when run on the remote host).
+Meta repository for managing a suite of VS Code extensions by [`lamnguyenx`](https://github.com/lamnguyenx).
 
-## Usage
+## Extensions
 
-```sh
-npx vscode-hacker-meta pack <extension-dir> [--out <dir>]
-npx vscode-hacker-meta install <vsix-file> [--post-install-script <path>]
+| Extension | Folder | Version | Description |
+|---|---|---|---|
+| [Eink 60Hz Theme](https://github.com/lamnguyenx/vscode-eink-60hz-theme) | `_refs/vscode-eink-60hz` | 2026.9.3 | Dark+ with black background and enhanced contrast, optimized for e-ink displays |
+| [Hacker Browser](https://github.com/lamnguyenx/vscode-hacker-browser) | `_refs/vscode-hacker-browser` | 2026.9.3 | A browser view you can dock in the Panel or Primary Sidebar |
+| [Hacker Markdown](https://github.com/lamnguyenx/vscode-hacker-markdown) | `_refs/vscode-hacker-markdown` | 2026.9.3 | A Markdown preview you can dock in the Panel or Primary Sidebar, or open in the Editor |
+| [Path Picker](https://github.com/lamnguyenx/vscode-path-picker) | `_refs/vscode-hacker-path-picker` | 2026.9.3 | Pick a file or folder like the File Picker, then copy its relative path, real path, or reveal in the Explorer |
+| [Stats Bar](https://github.com/lamnguyenx/vscode-hacker-stats-bar) | `_refs/vscode-hacker-stats-bar` | 2026.9.3 | A status bar to show system stats (CPU, network, memory, uptime) |
+
+## Quick start
+
+```bash
+# Open the workspace in VS Code
+code vscode-hacker-meta.code-workspace
 ```
 
-- `pack <dir>` — packs the extension with `vsce` (which runs its
-  `vscode:prepublish` build) and prints the produced VSIX path (default
-  output: `<dir>/build/`).
-- `install <vsix-file>` — installs the given VSIX through every install CLI
-  on the machine. The path must be specified explicitly; nothing is
-  discovered.
-- `--post-install-script <path>` — optional executable invoked as
-  `script <installed-extension-dir>` after each successful install to verify
-  the package. **Must be registered explicitly; nothing is auto-discovered.**
-  A non-executable script (e.g. 644 after a fresh clone) is run via bash.
+Each extension is referenced as a symlink in `_refs/`. All share the same build/install pattern:
 
-Example:
+```bash
+cd _refs/vscode-hacker-<name>
 
-```sh
-npx vscode-hacker-meta pack ./
-npx vscode-hacker-meta install build/vscode-hacker-markdown-0.0.1.vsix \
-  --post-install-script tools/post_install.sh
+# Build
+make build        # produces build/<publisher>.<name>-<version>.vsix
+
+# Install
+make install          # installs to both code and code-server
 ```
 
-## How install works
+## Build & release
 
-1. The target folder name (`<publisher>.<name>-<version>`) is read from the
-   VSIX's `extension.vsixmanifest`, so any extension's VSIX works.
-2. The VSIX is installed through every CLI that exists on the machine:
-   - `code` (native) → `~/.vscode/extensions` — a PATH `code` that is the
-     Remote-SSH shim (lives under `~/.vscode-server/`) is skipped; it is
-     handled as the server install below.
-   - `code-server` → `${XDG_DATA_HOME:-~/.local/share}/code-server/extensions`
-   - remote-cli → `~/.vscode-server/extensions` (newest of both server
-     layouts: `cli/servers/*/server/bin/remote-cli/code` and `bin/*/bin/remote-cli/code`)
-3. The install arg order matters: `--install-extension <vsix> --force` (a
-   `--force` before the value makes VS Code's CLI ignore the option).
-4. Each install is verified (extension dir exists) and the registered
-   post-install script runs; a CLI that fails is a warning when another
-   install succeeded. The command fails only if nothing was installed.
-5. If a CLI forwards the install to a connected VS Code instance instead of
-   installing locally (a common remote-cli behavior outside a real VS Code
-   terminal), the dir check catches it and reports a warning.
+All extensions follow a unified convention:
 
-## Development
+- **Output**: `build/<publisher>.<name>-<version>.vsix`
+- **Publisher**: `lamnguyenx`
+- **Version**: `2026.9.3`
+- **`.gitignore`**: Shared minimal template via `_refs/`
 
-```sh
-npm install
-npm run build   # tsc -> dist/
-npx . pack <path-to-extension-repo>
-npx . install <path-to-extension-repo>/build/<name>-<version>.vsix
+Tagging and releasing is done per-repo using `gh`:
+
+```bash
+git tag v2026.9.3
+git push origin v2026.9.3
+gh release create v2026.9.3 build/*.vsix --generate-notes
 ```
 
-Requires `vsce` (global, or installed anywhere) to pack; falls back to
-`npx @vscode/vsce`.
+## Generate summary table
+
+```bash
+python3 local/get_summary.py
+```
