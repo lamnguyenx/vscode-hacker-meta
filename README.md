@@ -11,6 +11,7 @@ Meta repository for managing a suite of VS Code extensions by [`lamnguyenx`](htt
 | [Hacker Markdown](https://github.com/lamnguyenx/vscode-hacker-markdown) | `_refs/vscode-hacker-markdown` | 2026.9.3 | A Markdown preview you can dock in the Panel or Primary Sidebar, or open in the Editor |
 | [Path Picker](https://github.com/lamnguyenx/vscode-path-picker) | `_refs/vscode-hacker-path-picker` | 2026.9.3 | Pick a file or folder like the File Picker, then copy its relative path, real path, or reveal in the Explorer |
 | [Stats Bar](https://github.com/lamnguyenx/vscode-hacker-stats-bar) | `_refs/vscode-hacker-stats-bar` | 2026.9.3 | A status bar to show system stats (CPU, network, memory, uptime) |
+| [Hacker Terminal Enhanced](https://github.com/lamnguyenx/vscode-hacker-terminal-enhanced) | `_refs/vscode-hacker-terminal-enhanced` | 2026.9.3 | Copy the last command + output from the active terminal in an LLM-friendly format |
 
 ## Quick start
 

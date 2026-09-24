@@ -23,6 +23,10 @@
     {
       "path": "_refs/vscode-hacker-stats-bar",
       "name": "vscode-hacker-stats-bar"
+    },
+    {
+      "path": "_refs/vscode-hacker-terminal-enhanced",
+      "name": "vscode-hacker-terminal-enhanced"
     }
   ],
   "settings": {}

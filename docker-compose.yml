@@ -1,0 +1,20 @@
+services:
+  code-server:
+    image: codercom/code-server:4.112.0
+    container_name: code-server
+    ports:
+      - "9620:9120"
+    environment:
+      DOCKER_USER: ${USER}
+    user: "${UID}:${GID}"
+    volumes:
+      - ./dot-config/code-server:${HOME}/.config/code-server
+      - ./exp/code-server/.local/share/code-server:${HOME}/.local/share/code-server
+      - ${HOME}/git:${HOME}/git:ro
+    command:
+      - --bind-addr
+      - 0.0.0.0:9120
+      - --config
+      - ${HOME}/.config/code-server/config.yaml
+      - --user-data-dir
+      - ${HOME}/.local/share/code-server

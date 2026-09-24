@@ -1,0 +1,5 @@
+bind-addr: localhost:9120
+auth: password
+password: Hello
+cert: /home/lamnt45/.config/code-server/localhost.pem
+cert-key: /home/lamnt45/.config/code-server/localhost-key.pem
