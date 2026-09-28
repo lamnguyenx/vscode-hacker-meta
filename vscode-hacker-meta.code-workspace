@@ -27,6 +27,14 @@
     {
       "path": "_refs/vscode-hacker-terminal-enhanced",
       "name": "vscode-hacker-terminal-enhanced"
+    },
+    {
+      "path": "_refs/code-server",
+      "name": "code-server"
+    },
+    {
+      "path": "_refs/vscode-hacker-rest-control",
+      "name": "vscode-hacker-rest-control"
     }
   ],
   "settings": {}
