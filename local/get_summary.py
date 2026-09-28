@@ -3,7 +3,7 @@ import json, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-REFS = ROOT / "_refs"
+SUBMODULES = ROOT / "_submodules"
 
 def load(path: Path) -> dict:
     pkg = json.loads((path / "package.json").read_text())
@@ -19,7 +19,7 @@ def render(rows: list[dict]) -> str:
                      [f"| {line(r.values())} |" for r in rows])
 
 def main():
-    projects = sorted(p for p in REFS.iterdir() if (p / "package.json").is_file())
+    projects = sorted(p for p in SUBMODULES.iterdir() if (p / "package.json").is_file())
     print(render([load(p) for p in projects]))
 
 if __name__ == "__main__":
