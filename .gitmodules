@@ -1,0 +1,21 @@
+[submodule "_submodules/vscode-eink-60hz"]
+	path = _submodules/vscode-eink-60hz
+	url = git@github.com:lamnguyenx/vscode-eink-60hz-theme.git
+[submodule "_submodules/vscode-hacker-browser"]
+	path = _submodules/vscode-hacker-browser
+	url = git@github.com:lamnguyenx/vscode-hacker-browser.git
+[submodule "_submodules/vscode-hacker-markdown"]
+	path = _submodules/vscode-hacker-markdown
+	url = git@github.com:lamnguyenx/vscode-hacker-markdown.git
+[submodule "_submodules/vscode-hacker-path-picker"]
+	path = _submodules/vscode-hacker-path-picker
+	url = git@github.com:lamnguyenx/vscode-path-picker.git
+[submodule "_submodules/vscode-hacker-rest-control"]
+	path = _submodules/vscode-hacker-rest-control
+	url = git@github.com:lamnguyenx/vscode-hacker-rest-control.git
+[submodule "_submodules/vscode-hacker-stats-bar"]
+	path = _submodules/vscode-hacker-stats-bar
+	url = git@github.com:lamnguyenx/vscode-hacker-stats-bar.git
+[submodule "_submodules/vscode-hacker-terminal-enhanced"]
+	path = _submodules/vscode-hacker-terminal-enhanced
+	url = git@github.com:lamnguyenx/vscode-hacker-terminal-enhanced.git
