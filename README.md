@@ -33,6 +33,17 @@ make build        # produces build/<publisher>.<name>-<version>.vsix
 make install          # installs to both code and code-server
 ```
 
+Or, from the meta repo root, run the same target in **every** submodule at once:
+
+```bash
+make build        # `make build` in each _submodules/*
+make install      # `make install` in each _submodules/*
+make list         # print the resolved submodule list
+```
+
+A failing submodule does not stop the others; the run exits non-zero and lists
+the failures at the end.
+
 ## Build & release
 
 All extensions follow a unified convention:
