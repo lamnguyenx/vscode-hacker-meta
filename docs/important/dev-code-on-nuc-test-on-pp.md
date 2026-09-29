@@ -131,6 +131,23 @@ Notes:
   `tailscale cert nuc.tail0ec64c.ts.net` can issue a real per-node cert (needs HTTPS certs
   enabled in the tailnet), but never a wildcard.
 
+## Recovery runbook (when the workbench looks dead)
+
+Symptom → cause → fix, from a session that hit all of these:
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| REST `:40620` not listening; pure `custom.eval` works but `executeCommand` / config `update` hang | Workspace is **untrusted** (Restricted Mode) → user extensions not activated | Status bar → **Restricted Mode** → *Trust*, reload. Check `vscode.workspace.isTrusted`. |
+| `chromium.connectOverCDP('http://127.0.0.1:9024')` connects the socket then times out | Stray blank / Vivaldi start-page targets stall target attach | Close them: `curl -s http://127.0.0.1:9024/json/close/<targetId>` (from `/json/list`), retry |
+| Browser restarted on the code-server **login page** | CDP profile lost its auth cookie | Log in (password in `dot-config/code-server/config.yaml`), by hand or a raw CDP `Runtime.evaluate` form submit |
+| A `*`/`onStartupFinished` extension never activates | Not installed for this profile, or trust | Confirm with `code-server --list-extensions --user-data-dir … --extensions-dir …`; check `logs/<ts>/exthost*/remoteexthost.log` |
+| A "missing command" error after a container recreate | Fresh host has not activated the extension (`onCommand:` gating) | Invoke the command once to force activation before enumerating commands |
+| Settings you didn't change are different | A test mutated them; settings persist | Restore from VS Code **local history** (`…/code-server/User/History/<id>/*.json`) |
+
+Prefer the order: check trust → prune stray CDP targets → reload the tab →
+*only then* recreate code-server. Recreating resets trust/layout and costs a
+re-login.
+
 ## Gotchas
 
 - **`command: |` with `\` line continuations in docker-compose breaks code-server flags.**

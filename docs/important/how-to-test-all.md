@@ -32,6 +32,9 @@ implementation's.
    make the test runner and the extension host agree on them.
 7. **A failing test is often load or stale state, not a regression.** Re-run on
    a quiet machine / fresh host before believing it.
+8. **Never mutate the developer's environment without restoring it.** Snapshot
+   and put back user settings; the workbench, profile and window layout are
+   shared, persistent state.
 
 ---
 
@@ -109,6 +112,13 @@ document.querySelector('iframe[src*="extensionId=<publisher.name>"]')
   .querySelector('iframe').contentDocument   // your webview document
 ```
 
+**Restricted Mode silently disables every user extension.** An untrusted
+workspace does not activate user extensions: the control extension never binds
+its port, and the workbench looks alive while `executeCommand` /
+`getConfiguration().update` hang (pure evals still work — that asymmetry is the
+tell). Check `vscode.workspace.isTrusted` and trust the workspace **first**;
+recreating code-server can leave it untrusted.
+
 **Fresh-profile workbench prep** (once per launch/recreate): (1) dismiss the
 one-time onboarding overlay — it swallows all input; (2) toggle the panel
 (`Cmd/Ctrl+J`) until the container switcher materializes (the panel bar is
@@ -163,6 +173,11 @@ Why this beats keyboard automation:
 **Rules:**
 
 - Add a small, shared control helper anyway — you still need CDP to assert.
+- **Use the shared control client; never hand-parse the channel.** Reading a
+  value with `fetch(...).text()` (raw JSON text) and restoring it with
+  `JSON.stringify` double-encodes it — this corrupted a user's
+  `workbench.colorTheme` for hours. The client must `JSON.parse` responses and
+  the value must stay a value.
 - Use `custom.eval` for extension-host assertions the REST surface doesn't
   expose (`vscode.executeDefinitionProvider`, `executeCompletionItemProvider`,
   `vscode.window.tabGroups`, etc.). Prefer this over clicking UI to read state.
@@ -180,7 +195,12 @@ Why this beats keyboard automation:
 - **Playwright can drive the workbench shell but not the webview OOPIF.** Use
   `chromium.connectOverCDP(port)` for the workbench page (view registration,
   panel tab, palette commands) and raw CDP (`/json/list` → `vscode-webview://`
-  target) to reach the webview.
+  target) to reach the webview. **Under code-server the webview is not an
+  OOPIF**: it is nested same-origin iframes inside the workbench page, so
+  Playwright's `frameLocator` reaches it directly
+  (`page.frameLocator('iframe[src*=extensionId=…]').frameLocator('iframe')`) —
+  see the browser extension's committed suite. The raw-CDP requirement applies
+  to the desktop dev host only.
 - **Trusted keyboard-input traps under CDP:** (a) the webview must be the
   workbench's *active element* for VS Code to forward keys — click *inside the
   webview target*, not the workbench page; (b) shifted keys need the **uppercase
@@ -212,6 +232,12 @@ Why this beats keyboard automation:
 - **Multiple previews exist.** "Return the first preview found" helpers can
   attach to a backgrounded editor panel instead of the docked view. Close extra
   editor panels first, or distinguish them by a view-only affordance.
+- **Maximize the webview's estate before asserting.** Close editors, hide the
+  secondary sidebar and the panel, and widen the pane that hosts the view
+  (drag its sash). The webview fills its pane, so a bigger pane removes a class
+  of layout-dependent flakiness — clicks landing outside the viewport,
+  `elementFromPoint` misses. Window layout persists in the profile, so do it
+  once per suite and say so.
 
 ## 5. Prefer observable behavior + the end-to-end echo
 
@@ -268,6 +294,16 @@ loaded page's DOM (`contentDocument` is inaccessible), and a failed load is
 - **Persisted side-state survives runs.** Extensions that write to global storage
   (history, zoom buckets, caches) carry state across test runs — normalize or
   reset it before asserting absolute values.
+- **Tests must not mutate the developer's settings.** Snapshot the
+  **Global-scope** value first
+  (`getConfiguration(section).inspect(key).globalValue`), restore it, and
+  **remove** a key that did not exist. `update(key, undefined)` can leave
+  `"key": null` in some builds — treat `null`/`undefined` alike as "remove".
+  Recover unintended changes from VS Code **local history**
+  (`User/History/<id>/*.json`), which keeps timestamped copies of edited files.
+- **A hard-interrupted suite bypasses cleanup.** If the runner is killed,
+  `afterAll`/`finish()` never runs, so settings/layout leaks stick. Keep a short
+  manual restore list for anything the suite changes.
 
 ## 8. Pin the moving parts (ports, paths, versions)
 
@@ -396,6 +432,14 @@ and say so in the docs:
 - **Orphaned CDP-port holders:** a `dconf watch` helper can inherit the CDP
   socket and keep the port in a zombie LISTEN state after the host is killed;
   free it (`ss -tlnp | grep :PORT`) before relaunching.
+- **`connectOverCDP` can hang after a browser restart.** Playwright connects the
+  websocket but stalls attaching to targets while stray blank / start-page tabs
+  are open. Close them via the CDP HTTP endpoint
+  (`curl -s http://127.0.0.1:<cdp>/json/close/<targetId>`) and retry; logging in
+  can be done with a raw CDP `Runtime.evaluate` form submit.
+- **VS Code local history** (`User/History/<id>/*.json`) keeps timestamped
+  copies of edited files — the forensic tool for "who changed my setting, and
+  when".
 - **Test webview JS without a host.** Run the real webview bundle in a plain
   page with a stubbed `acquireVsCodeApi`, serve the built CSS, and flip the page
   title to PASS/FAIL. Great for cross-renderer logic that doesn't need the
@@ -419,6 +463,10 @@ and say so in the docs:
 
 - ❌ Clicking the palette / sending `Ctrl+S` to arrange state under code-server.
 - ❌ Asserting on internal state instead of observable DOM / the echo.
+- ❌ Mutating the developer's settings, profile or window layout without
+  restoring them.
+- ❌ Concluding "the extension is broken" from hung command/REST calls before
+  checking workspace **trust** (Restricted Mode disables user extensions).
 - ❌ Hardcoding absolute fixture paths or a workspace-hash-derived port.
 - ❌ Leaving dirty editors/tabs behind; running suites back-to-back without
   cleanup or restarts.
@@ -433,8 +481,12 @@ The rules above are implemented here (paths relative to the meta repo):
 - Playbook for the reference extension:
   `_submodules/vscode-hacker-markdown/docs/important/how-to-test.md`
 - Additional playbooks: `_submodules/vscode-hacker-browser/docs/important/how-to-test.md`
-  (Playwright-over-CDP shell + raw-CDP OOPIF; local-server and `main.log`
-  oracles; CSP/`data:` traps) and
+  (committed `@playwright/test` suite: REST arranges/acts; a two-level
+  `frameLocator` reaches the code-server webview; `data:` fixtures assert the
+  embedded page's own DOM; the HTTP fixture server is the probe oracle —
+  mixed-content, `custom.eval`-falsy, and `mainThreadWebview-` prefixed
+  `viewType` traps; **non-destructive** global-settings snapshot/restore and the
+  `maximizeBrowserEstate` layout step) and
   `_submodules/vscode-hacker-path-picker/docs/important/how-to-test.md`
   (isolated `--user-data-dir`/`--extensions-dir`; clipboard oracle; QuickPick
   traps)
