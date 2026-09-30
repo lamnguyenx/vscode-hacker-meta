@@ -148,7 +148,9 @@ Push every behavior to the lowest layer that can prove it:
 
 The single biggest win is **structuring source so the interesting logic is pure**
 (no `vscode` import) and can be unit-checked against the shipped code without a
-host or a compile step. Reference example: `src/plantuml/*` + `tests/units/*`.
+host or a compile step. Reference examples: `src/plantuml/*` + `tests/units/*`
+(markdown) and the extracted iftopd codec `src/sysinfo/protocol.ts` +
+`tests/units/*` (stats bar).
 
 ## 3. Arrange/act via a control API, assert via CDP
 
@@ -178,6 +180,17 @@ Why this beats keyboard automation:
   `JSON.stringify` double-encodes it — this corrupted a user's
   `workbench.colorTheme` for hours. The client must `JSON.parse` responses and
   the value must stay a value.
+- **Box falsy results across the channel.** The reference REST server replies
+  with `JSON.stringify(data || null)`, so a legitimate `false` / `0` / `''`
+  arrives as `null`. Return a wrapper (`({ value })`) from `custom.eval` when
+  the oracle can be falsy — an `enabled === false` assertion silently read as
+  "unset" before this.
+- **When the extension under test *is* the control channel, assert the channel's
+  own contract too.** The falsy-boxing rule above, the `400` + JSON error body,
+  the CORS/bind headers, the loopback-only bind, and the JSON-body vs
+  `?command=…&args=…` query form are the cheapest, broadest regression net you
+  can write — and every consumer suite silently depends on them. A regression
+  there corrupts all of them.
 - Use `custom.eval` for extension-host assertions the REST surface doesn't
   expose (`vscode.executeDefinitionProvider`, `executeCompletionItemProvider`,
   `vscode.window.tabGroups`, etc.). Prefer this over clicking UI to read state.
@@ -260,6 +273,37 @@ When the extension post-processes output from a built-in engine (e.g.
 what *your* extension did with it (added attributes, wrapped frames, injected
 spans) — not on the engine's HTML.
 
+### Brand a shared chrome surface before asserting on it
+
+The status bar, Problems, and the notification area are shared with the
+workbench and other extensions, so "the bar changed" is **not** an oracle. Give
+your items a unique marker — a format prefix (`SBCPU ${percent}%`), a
+`Copied …:` message prefix — and match the marker. Assert on a set (or an
+absence), never on the whole surface. Two corollaries:
+
+- **A format is not applied when there is no data.** An extension that falls
+  back to `-` when its provider is empty will not show your marker; identify
+  that state by tooltip/`aria-label` instead.
+- **Chrome order is a layout artifact.** A right-aligned status section renders
+  its items in **reverse** insertion order (the left section preserves it);
+  assert alignment-aware order, or compare as a set.
+
+### Pin an external dependency with a fake on host loopback
+
+When the extension consumes an external daemon/socket, replace it in the suite
+with a deterministic fake that speaks the **same wire format** — import the
+extension's own codec so the two cannot drift. Under `network_mode: host` the
+extension host reaches the runner's `127.0.0.1`, so a plain TCP endpoint works
+with no container plumbing; a `host:port` override setting makes it selectable.
+Assert the deterministic values end-to-end (rendered text *and* tooltip), not
+just "some data appeared".
+
+The same trick covers **outbound HTTP callbacks** (event forwarding, an external
+formatter): stand up a local HTTP server on the runner's loopback and point the
+extension at it. Its **request log is the ground truth** that the call happened —
+stronger than introspecting the extension — after which you assert the payload
+and any echoed effect (e.g. the returned text actually landed in the document).
+
 ### Cross-origin content has no in-page oracle
 
 When the extension embeds a **cross-origin** frame, the webview cannot read the
@@ -301,6 +345,23 @@ loaded page's DOM (`contentDocument` is inaccessible), and a failed load is
   `"key": null` in some builds — treat `null`/`undefined` alike as "remove".
   Recover unintended changes from VS Code **local history**
   (`User/History/<id>/*.json`), which keeps timestamped copies of edited files.
+- **`machine` / `machine-overridable` settings do not live in `User/settings.json`.**
+  Under code-server, `ConfigurationTarget.Global` writes land in
+  `<user-data-dir>/Machine/settings.json`, and `inspect().globalValue` reflects
+  them. Snapshot/restore still works, but verify hygiene by **checksumming the
+  machine file** (`md5sum` before/after) — diffing `User/settings.json` shows
+  nothing.
+- **Scratch probes are suites too.** An ad-hoc eval that changes settings and
+  does not restore them becomes the "original" the next run's `beforeAll`
+  snapshots — the suite then faithfully preserves the pollution. Restore probe
+  changes before running the suite, and re-derive the original from local
+  history when in doubt.
+- **An extension that rebinds or disables itself on a settings change is hostile
+  to a shared workbench.** If changing any of its settings restarts its server —
+  and re-entering startup re-checks a port it already holds, or resolves a stale
+  pid file back to the current host — then don't toggle those settings from the
+  suite. Cover enable/disable and fallback paths by hand on a throwaway
+  instance, and change **nothing** so there is nothing to restore.
 - **A hard-interrupted suite bypasses cleanup.** If the runner is killed,
   `afterAll`/`finish()` never runs, so settings/layout leaks stick. Keep a short
   manual restore list for anything the suite changes.
@@ -343,6 +404,14 @@ hotload code-server             # kill + up -d --no-deps --force-recreate
 # then reload the browser tab so the workbench starts a fresh extension host
 ```
 
+**Install into the profile the running host actually loads.** There can be more
+than one code-server data dir (a Docker mount source *and* the host's real
+`~/.local/share/code-server`, possibly each with a running server). The host CLI
+writes to the literal `--user-data-dir` you pass, so passing the *container*
+path silently edits a different profile. Pass the **host mount source**, then
+confirm what the host loaded with `vscode.extensions.getExtension(id)` (id
+**and** version) — a directory listing is not proof.
+
 Cache-busting rules:
 
 - **code-server caches extension JS in a Service Worker.** A plain reload may
@@ -354,6 +423,10 @@ Cache-busting rules:
   always enough).
 - **`make install` skips an unchanged version.** Bump it, or overwrite the
   installed extension dir and reload the window.
+- **A calendar version must still be valid semver.** `vsce` rejects
+  `2026.09.30` ("Invalid extension version"; leading zeros are not valid
+  semver) even though `npm` will happily store it in the lockfile. Use
+  `2026.9.30`.
 - Installing an extension while a host is running is picked up mid-session, but
   a just-launched host can miss an install that was in flight — relaunch once
   after installing.
@@ -458,6 +531,23 @@ and say so in the docs:
   query. If your extension computes path/glob matches, set `alwaysShow: true` and
   filter yourself — otherwise the widget hides every row even though the
   extension returned results.
+- **A pinned formatter bounds the syntax you may use.** Prettier 2.x cannot
+  parse inline `type` import/export modifiers (`import { type X }`); the lint
+  step fails with a parse error. Use a separate `import type { X }` (or bump the
+  whole toolchain).
+- **Modern `@types/node` changes `Buffer` and socket types.** `Buffer` is
+  generic (`Buffer<ArrayBuffer>`) and a socket `'data'` chunk is
+  `string | Buffer`; annotate the accumulator and normalize the chunk, or the
+  extension no longer compiles against newer types.
+- **Pick a language/context where your code is the sole contributor.** A provider
+  query (`vscode.executeFormatDocumentProvider`, completion, hover) returns the
+  **merge** of every provider — a foreign formatter split a test's fixture output
+  into two edits in a real run. Also probe `document.languageId` instead of
+  inferring it from the file extension (a `.txt` fixture mapped to `log`).
+- **Verify a documented feature against the source before building an oracle on
+  it.** A README example can describe behavior the code does not implement — e.g.
+  `__type__` special-type arguments were documented and shipped in a sample file,
+  but `executeCommand` received plain objects and the command rejected them.
 
 ## Anti-patterns
 
@@ -473,6 +563,16 @@ and say so in the docs:
 - ❌ Trusting a passing run in a reused profile / stale extension host.
 - ❌ Assuming “works in standalone textmate” means it works in the window.
 - ❌ Concluding “regression” from a single run on a loaded machine.
+- ❌ Passing the *container* `--user-data-dir` to a host `code-server` install —
+  it edits a different profile than the one the container loads.
+- ❌ Letting scratch probes mutate settings without restoring them.
+- ❌ Treating a shared chrome surface (status bar, Problems, notifications) as a
+  boolean oracle, or its DOM order as insertion order.
+- ❌ Building an oracle on a feature the README documents but the source does not
+  implement (or driving a workbench command that reports success on a no-op when
+  a provider API answers the exact question).
+- ❌ Toggling the settings of an extension that rebinds or disables itself on a
+  settings change, then treating the stranded control channel as a regression.
 
 ## Reference implementation map
 
@@ -488,12 +588,27 @@ The rules above are implemented here (paths relative to the meta repo):
   `viewType` traps; **non-destructive** global-settings snapshot/restore and the
   `maximizeBrowserEstate` layout step) and
   `_submodules/vscode-hacker-path-picker/docs/important/how-to-test.md`
-  (isolated `--user-data-dir`/`--extensions-dir`; clipboard oracle; QuickPick
-  traps)
+  (committed `@playwright/test` suite + `bun` pure-logic checks; dedicated
+  fixture workspace that inherits the meta repo's trust; QuickPick traps;
+  status-bar copy echo as the oracle — a host-side `clipboard.readText()` hangs
+  under code-server)
+- Status-bar extension: `_submodules/vscode-hacker-stats-bar/docs/important/how-to-test.md`
+  (committed `@playwright/test` suite + `bun` pure-logic checks; unique
+  **format markers** turn the shared status bar into a deterministic oracle; a
+  fake `iftopd` TCP daemon pins the `portSpeed` rates and tooltip; `statsBar.*`
+  are `machine-overridable`, so hygiene is verified by checksumming
+  `Machine/settings.json`)
 - Environment / topology: `docs/important/dev-code-on-nuc-test-on-pp.md`
 - Dual-topology CDP helper: `_submodules/vscode-hacker-markdown/tests/integration/cdp.ts`
 - Control-plane helper + cleanup: `_submodules/vscode-hacker-markdown/tests/integration/rest.ts`
 - Suite runner + path/port resolution: `_submodules/vscode-hacker-markdown/tests/integration/test_utils.ts`
 - Pure-logic checks: `_submodules/vscode-hacker-markdown/tests/units/*`
-- REST control extension (port pinned by env): `_submodules/vscode-hacker-rest-control/`
+- REST control extension + its own committed suite:
+  `_submodules/vscode-hacker-rest-control/`
+  (`docs/important/how-to-test.md`; `tests/playwright/` — the extension is both
+  the control channel and the system under test, so the suite asserts the HTTP
+  contract too: falsy results box to `null`, `400` + JSON errors, query-string
+  vs JSON body, loopback-only bind; a local fixture server is the oracle for
+  `custom.registerEventHandler` / `custom.registerExternalFormatter`; the
+  status-bar `RC Port:` item and the `<port>.pid` file are the visible oracles)
 - Compose env pin: `docker-compose.yml` (`HACKER_REST_CONTROL_PORT`)
