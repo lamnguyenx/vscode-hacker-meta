@@ -1,6 +1,27 @@
+# Shared proxy env. Uppercase for most tools, lowercase for the ones that only
+# read the lowercase spelling (and for Docker's predefined build args).
+x-proxy: &proxy
+  HTTP_PROXY: "$HTTP_PROXY"
+  HTTPS_PROXY: "$HTTPS_PROXY"
+  NO_PROXY: "$NO_PROXY"
+  http_proxy: "$HTTP_PROXY"
+  https_proxy: "$HTTPS_PROXY"
+  no_proxy: "$NO_PROXY"
+
 services:
   code-server:
-    image: codercom/code-server:4.138.0
+    # Built from ./docker/code-server: codercom/code-server pinned to 4.138.0,
+    # plus the official Docker CLI + Compose plugin so it can drive the host
+    # daemon over the mounted socket.
+    build:
+      context: ./docker/code-server
+      # Same proxy vars as the runtime environment (only matters when building
+      # behind a proxy; empty by default). BACH_REF busts the bach clone layer
+      # when it changes, e.g. `BACH_REF=$(git ls-remote ... HEAD | cut -f1)`.
+      args:
+        <<: *proxy
+        BACH_REF: ${BACH_REF:-HEAD}
+    image: vscode-hacker-meta/code-server:4.138.0
     network_mode: host
     environment:
       DOCKER_USER: ${USER}
@@ -9,10 +30,18 @@ services:
       # `HACKER_REST_CONTROL_PORT=<port> docker compose up -d`.
       HACKER_REST_CONTROL_PORT: ${HACKER_REST_CONTROL_PORT:-40620}
     user: "${UID}:${GID}"
+    # Host Docker access: the container user is not in the host's `docker`
+    # group by default, so add it as a supplementary group to reach
+    # /var/run/docker.sock. Override with
+    # `DOCKER_GID=$(getent group docker | cut -d: -f3) docker compose up -d`.
+    group_add:
+      - "${DOCKER_GID:-984}"
     volumes:
       - ./dot-config/code-server:${HOME}/.config/code-server
       - ./exp/code-server/.local/share/code-server:${HOME}/.local/share/code-server
       - ${HOME}/git:${HOME}/git:ro
+      # Host Docker access: lets code-server drive the host's Docker daemon.
+      - /var/run/docker.sock:/var/run/docker.sock
     command:
       - --bind-addr
       - 0.0.0.0:9620
@@ -20,3 +49,71 @@ services:
       - ${HOME}/.config/code-server/config.yaml
       - --user-data-dir
       - ${HOME}/.local/share/code-server
+
+  # Hacker Terminal Enhanced — browser dev harness.
+  #
+  # Serves the real history panel (media/popup.*) in a plain browser against a
+  # read-only mirror of the extension's SQLite history, with hot reload on save.
+  # Reuses the ws-scrcpy pattern: host networking, host UID/GID, bind-mounted
+  # checkout, pinned Bun image, nothing built inside the container.
+  #
+  #   docker compose up -d lamnguyenx.hacker-terminal-enhanced-webview-dev
+  #   # then open http://localhost:5199
+  #
+  # The DB is mounted from the code-server data dir above. Override HTE_DB if
+  # your layout differs; a missing DB just yields an empty list.
+  lamnguyenx.hacker-terminal-enhanced-webview-dev:
+    # Pinned to the host's `bun --version` (1.4.0). Only Bun built-ins are used,
+    # so no node_modules are needed and there is nothing to rebuild.
+    image: oven/bun:1.4.0
+    container_name: lamnguyenx.hacker-terminal-enhanced-webview-dev
+    network_mode: host
+    # Run as the host user so media/popup.js (written by `bun build --watch`)
+    # stays host-owned.
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /ext
+    init: true
+    volumes:
+      # The extension checkout.
+      - ./_submodules/vscode-hacker-terminal-enhanced:/ext
+      # Real history DB, read-only. Mount the whole globalStorage dir so the WAL
+      # `-wal`/`-shm` files are present (SQLite needs them to read a WAL db).
+      - ./exp/code-server/.local/share/code-server/User/globalStorage/lamnguyenx.hacker-terminal-enhanced:/hte-db:ro
+    environment:
+      <<: *proxy
+      # Writable home without a bind mount; nothing here needs to persist.
+      HOME: "/tmp/hte-home"
+      WEBVIEW_DEV_PORT: "5199"
+      HTE_DB: "/hte-db/history.sqlite"
+      no_proxy: "localhost,127.0.0.1,0.0.0.0,.local,.internal,.sslip.io"
+    command: ["bun", "scripts/dev-webview.ts"]
+    stop_grace_period: 2s
+    restart: "no"
+
+  # lamnguyenx.hacker-terminal-enhanced-webview-prod:
+  #   # Pinned to the host's `bun --version` (1.4.0). Only Bun built-ins are used,
+  #   # so no node_modules are needed and there is nothing to rebuild.
+  #   image: oven/bun:1.4.0
+  #   container_name: lamnguyenx.hacker-terminal-enhanced-webview-prod
+  #   network_mode: host
+  #   # Run as the host user so media/popup.js (written by `bun build --watch`)
+  #   # stays host-owned.
+  #   user: "${UID:-1000}:${GID:-1000}"
+  #   working_dir: /ext
+  #   init: true
+  #   volumes:
+  #     # The extension checkout.
+  #     - ./_submodules/vscode-hacker-terminal-enhanced:/ext
+  #     # Real history DB, read-only. Mount the whole globalStorage dir so the WAL
+  #     # `-wal`/`-shm` files are present (SQLite needs them to read a WAL db).
+  #     - ${HOME}/.local/share/code-server/User/globalStorage/lamnguyenx.hacker-terminal-enhanced:/hte-db:ro
+  #   environment:
+  #     <<: *proxy
+  #     # Writable home without a bind mount; nothing here needs to persist.
+  #     HOME: "/tmp/hte-home"
+  #     WEBVIEW_DEV_PORT: "5120"
+  #     HTE_DB: "/hte-db/history.sqlite"
+  #     no_proxy: "localhost,127.0.0.1,0.0.0.0,.local,.internal,.sslip.io"
+  #   command: ["bun", "scripts/dev-webview.ts"]
+  #   stop_grace_period: 2s
+  #   restart: "no"

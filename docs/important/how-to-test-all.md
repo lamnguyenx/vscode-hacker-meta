@@ -548,6 +548,24 @@ and say so in the docs:
   it.** A README example can describe behavior the code does not implement — e.g.
   `__type__` special-type arguments were documented and shipped in a sample file,
   but `executeCommand` received plain objects and the command rejected them.
+- **`viewsContainers` ids are prefixed and characters are restricted.** A
+  contributed container id `foo` is registered as
+  `workbench.view.extension.foo`; `vscode.moveViews` with the bare id silently
+  no-ops. Ids must match `^[A-Za-z0-9_-]+$` (no dots), and the secondary-sidebar
+  location key is `secondarySidebar` (not `auxiliarybar`).
+- **A view `when` clause on `config.<section>.<key>` does not reliably
+  re-evaluate when the setting changes** — a view gated that way stayed visible
+  after the value changed. Gate with `setContext` and update it on
+  `onDidChangeConfiguration`.
+- **`workbench.action.moveEditorToNewWindow` is a no-op under code-server** (a
+  browser tab cannot open an OS window); features that "open a window" degrade
+  to the editor area there.
+- **A remote browser cannot be OS-focused from the runner**, so
+  `navigator.clipboard.readText()`/`writeText` reject with *"Document is not
+  focused"* (CDP focus emulation does not fix it). To assert a copy, hook the
+  renderer's `navigator.clipboard.writeText` — the extension host's
+  `vscode.env.clipboard.writeText` is delivered through it — instead of reading
+  the clipboard.
 
 ## Anti-patterns
 
@@ -598,6 +616,15 @@ The rules above are implemented here (paths relative to the meta repo):
   fake `iftopd` TCP daemon pins the `portSpeed` rates and tooltip; `statsBar.*`
   are `machine-overridable`, so hygiene is verified by checksumming
   `Machine/settings.json`)
+- Terminal history extension: `_submodules/vscode-hacker-terminal-enhanced/docs/important/how-to-test.md`
+  (committed `@playwright/test` suite + `bun` pure-logic checks; one webview
+  rendered in five places — editor / panel / primary sidebar / secondary
+  sidebar / separate window — as a `setContext`-gated `WebviewView` moved with
+  `vscode.moveViews`; container placement is asserted on the workbench chrome,
+  not just the webview DOM; the copy oracle is a hook on the renderer's
+  `navigator.clipboard.writeText`; `node:sqlite` history + a `bun build` webview
+  bundle; commands must avoid `;` and instant builtins for deterministic
+  captures)
 - Environment / topology: `docs/important/dev-code-on-nuc-test-on-pp.md`
 - Dual-topology CDP helper: `_submodules/vscode-hacker-markdown/tests/integration/cdp.ts`
 - Control-plane helper + cleanup: `_submodules/vscode-hacker-markdown/tests/integration/rest.ts`
