@@ -21,7 +21,8 @@ services:
       args:
         <<: *proxy
         BACH_REF: ${BACH_REF:-HEAD}
-    image: vscode-hacker-meta/code-server:4.138.0
+        BASE_IMAGE: codercom/code-server:4.139.1
+    image: vscode-hacker-meta/code-server:4.139.1
     network_mode: host
     environment:
       DOCKER_USER: ${USER}
@@ -49,6 +50,13 @@ services:
       - ${HOME}/.config/code-server/config.yaml
       - --user-data-dir
       - ${HOME}/.local/share/code-server
+      # Dev/test harness: the only content the container can reach is the
+      # mounted git tree + this file, so treat the session as trusted rather
+      # than prompting — and rather than silently disabling every user
+      # extension that lacks `capabilities.untrustedWorkspaces`. Session-scoped
+      # (no client-side trusted-folders state to seed; VS Code exposes no
+      # per-folder trust setting).
+      - --disable-workspace-trust
 
   # Hacker Terminal Enhanced — browser dev harness.
   #

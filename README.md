@@ -36,9 +36,10 @@ make install          # installs to both code and code-server
 Or, from the meta repo root, run the same target in **every** submodule at once:
 
 ```bash
-make build        # `make build` in each _submodules/*
-make install      # `make install` in each _submodules/*
-make list         # print the resolved submodule list
+make build               # `make build` in each _submodules/*
+make install             # `make install` in each _submodules/*
+make install-code-server # install the built VSIXs into the compose code-server
+make list                # print the resolved submodule list
 ```
 
 A failing submodule does not stop the others; the run exits non-zero and lists
@@ -60,6 +61,29 @@ git tag v2026.9.3
 git push origin v2026.9.3
 gh release create v2026.9.3 build/*.vsix --generate-notes
 ```
+
+## Dev harness (code-server)
+
+The extensions are developed and tested against a shared code-server started
+from `docker-compose.yml`:
+
+- The `code-server` service runs with **`--disable-workspace-trust`**, so the
+  session is trusted and user extensions activate without a trust prompt — no
+  per-extension `capabilities.untrustedWorkspaces` needed. (The container only
+  reaches the mounted git tree + config, so this is "trust the mounts".)
+- `make install-code-server` installs each submodule's built VSIX into that
+  container (picking the VSIX that matches each `package.json` version). The
+  per-submodule `make install-code-server` runs the *host* `code-server` CLI,
+  which writes to a different profile and never reaches the container. Reload
+  the workbench window **once** afterwards.
+- CDP tooling connects to `9024`; the REST control channel listens on `40620`
+  (`HACKER_REST_CONTROL_PORT`).
+
+See [`docs/important/how-to-test-all.md`](docs/important/how-to-test-all.md)
+(general playbook), [`docs/important/dev-code-on-nuc-test-on-pp.md`](docs/important/dev-code-on-nuc-test-on-pp.md)
+(topology + recovery runbook), and the dated notes under
+[`docs/plans/`](docs/plans/) — most recently
+[`2026-10-12-code-server-trust-and-test-harness-hardening.md`](docs/plans/2026/10/12/2026-10-12-code-server-trust-and-test-harness-hardening.md).
 
 ## Generate summary table
 

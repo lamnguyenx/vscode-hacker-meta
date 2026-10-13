@@ -99,10 +99,20 @@ Traps:
 - after editing `media/` assets, a CDP-synthesized reload may not refresh them —
   restart the host instead.
 
-**Option A — code-server.** Install by symlinking the repo into the extensions
-dir (a live mount, so `out/`/`build/` are read as-is), then `hotload code-server`
-after each rebuild; the service worker may still serve stale JS, so also bump
-`package.json#version` (see §9). The webview is not a separate CDP target —
+**Option A — code-server.** Two install paths:
+
+- **VSIX (preferred, robust):** from the meta repo, `make install-code-server`
+  installs each submodule's built VSIX into the compose code-server, then reload
+  the window once (see §9).
+- **Symlink (live mount):** symlinking the repo into the extensions dir reads
+  `out/`/`build/` as-is, but the symlink stores an **absolute target** — moving
+  the repo (e.g. into `_submodules/`) silently breaks it and the extension stops
+  loading with no error (its commands simply never appear). Recreate it from the
+  current path if you use this path.
+
+Either way, `hotload code-server` after each rebuild; the service worker may
+still serve stale JS, so also bump `package.json#version` (see §9). The webview
+is not a separate CDP target —
 evaluate on the workbench page and dive through the frames, finding your webview
 by the `extensionId` in the iframe `src`:
 
@@ -116,8 +126,23 @@ document.querySelector('iframe[src*="extensionId=<publisher.name>"]')
 workspace does not activate user extensions: the control extension never binds
 its port, and the workbench looks alive while `executeCommand` /
 `getConfiguration().update` hang (pure evals still work — that asymmetry is the
-tell). Check `vscode.workspace.isTrusted` and trust the workspace **first**;
-recreating code-server can leave it untrusted.
+tell). **In this harness, run code-server with `--disable-workspace-trust`**
+(the `docker-compose.yml` `code-server` command does) so the session is treated
+as trusted and extensions always activate. The only content the container can
+reach is the mounted git tree + config, so "trusted session" == "trust the
+mounts". If you hit untrusted mode elsewhere, check `vscode.workspace.isTrusted`
+and trust the workspace **first** — recreating code-server can leave it
+untrusted. (A per-extension alternative is to declare
+`"capabilities": { "untrustedWorkspaces": { "supported": true } }`, but the
+harness prefers the flag so it never has to touch every `package.json`.)
+
+VS Code exposes **no per-folder trust setting** (`security.workspace.trust.*` is
+only `enabled` / `emptyWindow` / `untrustedFiles` / `startupPrompt` / `banner`).
+Trusted folders are client-side state, stored **per remote authority** in the
+browser's `vscode-web-state-db-global-shared` IndexedDB under
+`content.trust.model.key` — so they survive a container restart but are lost
+when the origin/authority changes (e.g. `localhost:9620` vs a tailnet host), and
+never appear in the server-side `state.vscdb`.
 
 **Fresh-profile workbench prep** (once per launch/recreate): (1) dismiss the
 one-time onboarding overlay — it swallows all input; (2) toggle the panel
@@ -404,6 +429,19 @@ hotload code-server             # kill + up -d --no-deps --force-recreate
 # then reload the browser tab so the workbench starts a fresh extension host
 ```
 
+- **In this meta repo, use `make install-code-server`** (→
+  `local/install-code-server.sh`): it installs every built submodule's VSIX into
+  the compose `code-server`, picking the VSIX that matches each `package.json`
+  version (so stale VSIXs accumulated in `build/` are ignored) and passing the
+  host mount source as `--user-data-dir`.
+- **Reload the window once, not repeatedly.** The extension host ignores
+  disconnects for `VSCODE_RECONNECTION_GRACE_TIME` (3h here), so each reload
+  spawns a new host while the previous one lingers — orphaned hosts keep the
+  pinned REST port (`40620`), so commands land in a stale session while the
+  visible window is served by a *different* host. Prefer a single reload or
+  `hotload code-server`, and confirm the REST port maps to the live host
+  (`custom.workspaceFolders` / the status-bar `RC Port:` item) before driving it.
+
 **Install into the profile the running host actually loads.** There can be more
 than one code-server data dir (a Docker mount source *and* the host's real
 `~/.local/share/code-server`, possibly each with a running server). The host CLI
@@ -578,6 +616,8 @@ and say so in the docs:
 - ❌ Hardcoding absolute fixture paths or a workspace-hash-derived port.
 - ❌ Leaving dirty editors/tabs behind; running suites back-to-back without
   cleanup or restarts.
+- ❌ Running the per-feature integration probes (`*_ix.ts` / `*_check.ts`) as a
+  single suite — each needs a fresh `open_view.ts` and its own active fixture.
 - ❌ Trusting a passing run in a reused profile / stale extension host.
 - ❌ Assuming “works in standalone textmate” means it works in the window.
 - ❌ Concluding “regression” from a single run on a loaded machine.

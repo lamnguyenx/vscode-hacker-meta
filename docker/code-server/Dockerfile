@@ -9,7 +9,8 @@
 #
 # Base is pinned to the same codercom/code-server tag used before, so nothing
 # else about the workspace changes.
-FROM codercom/code-server:4.138.0
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
 
 # The base image runs as the non-root `coder` user, but apt needs root. Switch
 # back at the end to keep the image's default user (compose overrides it anyway).
@@ -59,6 +60,14 @@ WORKDIR /
     RUN docker --version && \
         docker-compose version && \
         docker compose version
+
+    RUN --mount=type=cache,target=/var/cache/apt \
+        --mount=type=cache,target=/var/lib/apt \
+        apt-fast update && \
+        MAXNUM=8 apt-fast install --no-install-recommends -y \
+            tig \
+            gdu \
+            git
 
 USER 1000
 
