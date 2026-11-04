@@ -287,9 +287,14 @@ Why this beats keyboard automation:
 - **The `contentDocument` gotcha (dev host):** the extension's HTML lives in a
   *child frame of the OOPIF*, so every expression must reach
   `document.querySelector('iframe').contentDocument`.
-- **Find the view by a stable app anchor, never by target order.** The reference
-  probes for `.toolbar .doc-name`; use whatever uniquely identifies *your*
-  extension's UI. Target order changes with session restore.
+- **Find the page *and* the view by a stable app anchor, never by target order.**
+  The top-level workbench page can be preceded by a stray `chrome://newtab` or
+  `about:blank` target: `targets.find(t => t.type === 'page')` then sends
+  palette input/evals to the wrong tab, so `open_view.ts` times out with
+  `PREVIEW_TIMEOUT` while the preview is visibly open. Probe every `page` target
+  for `.monaco-workbench` (the markdown repo's `openWorkbenchPage()`), and the
+  webview for `.toolbar .doc-name` (or whatever uniquely identifies *your*
+  extension's UI). Target order changes with session restore and stray tabs.
 - **Compute mouse coordinates from the frame chain.** Under code-server a click
   must be offset by `extFrame.getBoundingClientRect() + innerFrame.getBoundingClientRect()`,
   recalculated before each click (scrolling/layout shifts it).
@@ -388,7 +393,12 @@ loaded page's DOM (`contentDocument` is inaccessible), and a failed load is
 - **Batch limits are real.** The workbench destabilizes after a handful of
   integration tests (accumulated tabs/panels → timeouts, palette never renders,
   hang). Run one at a time; restart between small groups; the only reliable
-  recovery is a container restart + fresh browser tab + re-prep.
+  recovery is a container restart + fresh browser tab + re-prep. Two tells that
+  it is rot, not a regression: `showTextDocument` stops resolving while a plain
+  `vscode.open` still works, and a deep webview scan hits a preview iframe whose
+  document never loaded. Restart code-server **and** the browser (Chromium
+  restart keeps the profile/login but drops the stale workbench session); a
+  window reload can leave the half-dead page and an orphaned extension host.
 - **Tests must not leave tracked fixtures dirty.** `git checkout` fixtures after
   a run if a failed input path leaked typed text.
 - **Persisted side-state survives runs.** Extensions that write to global storage
@@ -596,6 +606,35 @@ and say so in the docs:
   (QuickPick, monaco lists) — query the DOM with `page.evaluate`.
 - **Read the OS clipboard for copy assertions** (`pbpaste`/`xclip`);
   `navigator.clipboard.readText()` is denied in the renderer.
+- **Force layout by resizing the workbench page, not the webview's inner
+  iframe.** VS Code's webview host owns the inner iframe's inline width: writing
+  `iframe.style.width` is reverted at the next layout message, and clearing it
+  afterwards leaves the iframe at the UA default **300px**, corrupting the
+  preview for the next suite. Use `Emulation.setDeviceMetricsOverride` on the
+  workbench page target (VS Code reflows its panes like a sash drag) and
+  `clearDeviceMetricsOverride` in cleanup.
+- **CDP wheel events do not exercise default scrolling in this harness.**
+  `Input.dispatchMouseEvent({type:'mouseWheel'})` and
+  `Input.synthesizeScrollGesture` land on the right element (a capture listener
+  sees the target inside the table) but never change `scrollLeft` — for the
+  table, for a plain `<div>` in the webview, and even for a `<div>` in the
+  top-level page. Treat wheel input as unavailable for scroll oracles; set
+  `scrollLeft`/`scrollTop` programmatically and assert geometry (container right
+  edge, last cell in view).
+- **Wide tables: wrapping is a min-content problem.** A table cannot shrink
+  below the longest unbreakable token in each cell plus padding. `overflow-wrap:
+  break-word` breaks words at paint time but does **not** reduce min-content;
+  only `overflow-wrap: anywhere` does. Cell padding is a hard floor, so at
+  extreme widths/zoom even that cannot fit — fall back to an internal scroll
+  region.
+- **A horizontally scrollable region with overlay scrollbars still reads as
+  clipped content.** A region can be perfectly scrollable and still look like
+  lost text because the bar only appears during a gesture, and
+  `::-webkit-scrollbar` styling does not reliably force a visible bar in the
+  webview. Also remember Chromium ignores `overflow` on `display: table`: to
+  make a table a scroll container you need `display: block` (plus
+  `width: fit-content` so it does not stretch). Assert reachability by geometry,
+  and do not build a "just scroll it" UX without an explicit affordance.
 - **QuickPick re-filters your items** with its own fuzzy matcher against the raw
   query. If your extension computes path/glob matches, set `alwaysShow: true` and
   filter yourself — otherwise the widget hides every row even though the
@@ -662,6 +701,12 @@ and say so in the docs:
   a provider API answers the exact question).
 - ❌ Toggling the settings of an extension that rebinds or disables itself on a
   settings change, then treating the stranded control channel as a regression.
+- ❌ Selecting the workbench page (or a webview) by CDP target order — a stray
+  newtab makes every eval/palette action land in the wrong tab.
+- ❌ "Fixing" a layout test by writing the webview's inner `iframe.style.width` —
+  the host owns it, and cleanup can leave the preview at the 300px UA default.
+- ❌ Treating a horizontally scrollable region as self-evidently reachable on
+  overlay-scrollbar platforms; assert the geometry and provide an affordance.
 
 ## Reference implementation map
 
@@ -698,9 +743,16 @@ The rules above are implemented here (paths relative to the meta repo):
   captures)
 - Environment / topology: `docs/important/dev-code-on-nuc-test-on-pp.md`
 - Dual-topology CDP helper: `_submodules/vscode-hacker-markdown/tests/integration/cdp.ts`
+  (`connectPreview()` + `openWorkbenchPage()` — the latter probes pages for
+  `.monaco-workbench`, so stray browser tabs cannot hijack the session)
 - Control-plane helper + cleanup: `_submodules/vscode-hacker-markdown/tests/integration/rest.ts`
 - Suite runner + path/port resolution: `_submodules/vscode-hacker-markdown/tests/integration/test_utils.ts`
 - Pure-logic checks: `_submodules/vscode-hacker-markdown/tests/units/*`
+- Narrow-viewport table regression (fit vs pan, 200% zoom fallback; shrinks the
+  workbench page with CDP emulation and restores settings/viewport):
+  `_submodules/vscode-hacker-markdown/tests/integration/narrow_table_ix.ts` —
+  write-up:
+  `_submodules/vscode-hacker-markdown/docs/plans/2026/11/04/2026-11-04-narrow-preview-wide-tables.md`
 - REST control extension + its own committed suite:
   `_submodules/vscode-hacker-rest-control/`
   (`docs/important/how-to-test.md`; `tests/playwright/` — the extension is both

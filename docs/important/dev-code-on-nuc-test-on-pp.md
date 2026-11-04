@@ -202,19 +202,30 @@ Symptom → cause → fix, from a session that hit all of these:
 | --- | --- | --- |
 | REST `:40620` not listening; pure `custom.eval` works but `executeCommand` / config `update` hang | Workspace is **untrusted** (Restricted Mode) → user extensions not activated | The harness recreates code-server with `--disable-workspace-trust`, so this means the flag is gone — recreate the container (`docker compose up -d --force-recreate code-server`). Against a code-server without the flag: status bar → **Restricted Mode** → *Trust*, reload. Check `vscode.workspace.isTrusted`. |
 | `chromium.connectOverCDP('http://127.0.0.1:9024')` connects the socket then times out | Stray blank / Vivaldi start-page targets stall target attach | Close them: `curl -s http://127.0.0.1:9024/json/close/<targetId>` (from `/json/list`), retry |
+| `PREVIEW_TIMEOUT` / palette input types into nothing while the preview is visibly open | A stray `chrome://newtab` or `about:blank` tab is the first CDP `page` target; helpers that pick pages by order drive it | Probe pages for `.monaco-workbench` (markdown repo's `openWorkbenchPage()`), or close the stray tabs; never index page targets by order |
+| After several suites: `showTextDocument` never resolves (a plain `vscode.open` still works), deep scans hit a preview iframe with no document, `NO_PREVIEW` | Accumulated workbench rot — piled-up preview panels, orphaned iframes, stale extension host | Restart **both** `code-server` and `chromium`, reopen the workspace, re-run `open_view.ts`; a window reload alone can leave the half-dead page |
 | Browser restarted on the code-server **login page** | CDP profile lost its auth cookie | Log in (password in `dot-config/code-server/config.yaml`), by hand or a raw CDP `Runtime.evaluate` form submit |
 | A `*`/`onStartupFinished` extension never activates | Not installed for this profile, or trust | Confirm with `code-server --list-extensions --user-data-dir … --extensions-dir …`; check `logs/<ts>/exthost*/remoteexthost.log` |
 | A "missing command" error after a container recreate | Fresh host has not activated the extension (`onCommand:` gating) | Invoke the command once to force activation before enumerating commands |
 | Settings you didn't change are different | A test mutated them; settings persist | Restore from VS Code **local history** (`…/code-server/User/History/<id>/*.json`) |
 
 Prefer the order: check trust → prune stray CDP targets → reload the tab
-**once** → *only then* recreate code-server. With `--disable-workspace-trust` a
-recreate no longer resets trust, but it costs a re-login, and (per the general
-playbook) repeated reloads leave orphaned extension hosts that keep squatting the
-REST port.
+**once** → restart the **browser** (`docker compose restart chromium`; the
+profile keeps the code-server login, but tabs are dropped, so navigate back to
+the workspace URL) → *only then* recreate code-server. With
+`--disable-workspace-trust` a recreate no longer resets trust, but it costs a
+re-login, and (per the general playbook) repeated reloads leave orphaned
+extension hosts that keep squatting the REST port.
 
 ## Gotchas
 
+- **A wedged workbench is cured by restarting the browser, not by navigating again.**
+  After a code-server recreate the old tab can reconnect with a stale session
+  token (code-server logs `Unknown reconnection token (never seen)`), and
+  `connectOverCDP` / `Runtime.evaluate` then hang during navigation even though
+  `/json/list` shows the workbench page. `docker compose restart chromium` and
+  navigate to `https://localhost:9620/?folder=…`; the `exp/chromium` profile
+  keeps the login.
 - **`command: |` with `\` line continuations in docker-compose breaks code-server flags.**
   YAML keeps the newlines, compose turns `\`+newline into a literal `\n` in the next argv
   token, so `--config`/`--user-data-dir` are not parsed (they land in positional args).
