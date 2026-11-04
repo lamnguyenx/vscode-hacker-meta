@@ -142,8 +142,8 @@ manual (CDP)     editor tab shown + docked view hidden in editor mode;
 ## Links
 
 - Extension testing playbook:
-  `_submodules/vscode-hacker-terminal-enhanced/docs/important/how-to-test.md`
+  `_submodules/vscode-hacker-terminal-enhanced/docs/important/testing/how-to-test.md`
 - Extension design log:
   `_submodules/vscode-hacker-terminal-enhanced/docs/plans/2026/09/30/2026-09-30-terminal-enhanced-history-popup.md`
-- General playbook: [`docs/important/how-to-test-all.md`](../../../important/how-to-test-all.md)
-- Topology: [`docs/important/dev-code-on-nuc-test-on-pp.md`](../../../important/dev-code-on-nuc-test-on-pp.md)
+- General playbook: [`docs/important/testing/how-to-test-all.md`](../../../../important/testing/how-to-test-all.md)
+- Topology: [`docs/important/dev-env/dev-code-on-nuc-test-on-pp.md`](../../../../important/dev-env/dev-code-on-nuc-test-on-pp.md)

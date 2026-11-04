@@ -81,9 +81,9 @@ no containers are started, no extension is installed, no files are changed.
 
 - `README.md` — a local-browser subsection, `make info`, accurate extension
   versions.
-- `docs/important/dev-code-on-nuc-test-on-pp.md` — the local alternative to the
+- `docs/important/dev-env/dev-code-on-nuc-test-on-pp.md` — the local alternative to the
   pp browser, ports, first-run login, security and troubleshooting.
-- `docs/important/how-to-test-all.md` — the local option in the environment
+- `docs/important/testing/how-to-test-all.md` — the local option in the environment
   chooser and the `make info` habit.
 - This plan.
 
@@ -290,8 +290,8 @@ only (`127.0.0.1:40620`) on purpose.
 | `scripts/style.ts` | ANSI palette and TTY detection |
 | `Makefile` | `info` target |
 | `README.md` | local-browser and `make info` docs |
-| `docs/important/dev-code-on-nuc-test-on-pp.md` | topology, ports, troubleshooting |
-| `docs/important/how-to-test-all.md` | environment chooser and local browser |
+| `docs/important/dev-env/dev-code-on-nuc-test-on-pp.md` | topology, ports, troubleshooting |
+| `docs/important/testing/how-to-test-all.md` | environment chooser and local browser |
 
 ## Quick reference
 

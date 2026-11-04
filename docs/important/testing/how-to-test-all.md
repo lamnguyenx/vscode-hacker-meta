@@ -2,13 +2,13 @@
 
 Transferable rules for testing **any** VS Code extension end-to-end in this
 environment. Distilled from the per-extension playbooks in
-[`_submodules/vscode-hacker-markdown`](../../_submodules/vscode-hacker-markdown/docs/important/how-to-test.md)
+[`_submodules/vscode-hacker-markdown`](../../../_submodules/vscode-hacker-markdown/docs/important/testing/how-to-test.md)
 (webview panel, embedded-editor language features, contributed grammars,
-background fetches), [`_submodules/vscode-hacker-browser`](../../_submodules/vscode-hacker-browser/docs/important/how-to-test.md)
+background fetches), [`_submodules/vscode-hacker-browser`](../../../_submodules/vscode-hacker-browser/docs/important/testing/how-to-test.md)
 (webview embedding a cross-origin iframe; Playwright-driven shell; server-log
-and OS oracles), and [`_submodules/vscode-hacker-path-picker`](../../_submodules/vscode-hacker-path-picker/docs/important/how-to-test.md)
+and OS oracles), and [`_submodules/vscode-hacker-path-picker`](../../../_submodules/vscode-hacker-path-picker/docs/important/testing/how-to-test.md)
 (QuickPick UI; isolated instance; clipboard oracle). Environment setup lives in
-[`dev-code-on-nuc-test-on-pp.md`](dev-code-on-nuc-test-on-pp.md) — read that
+[`dev-code-on-nuc-test-on-pp.md`](../dev-env/dev-code-on-nuc-test-on-pp.md) — read that
 first.
 
 The examples use the reference stack (code-server in Docker on a remote box,
@@ -83,8 +83,8 @@ CDP_PORT=9324 make -C _submodules/vscode-hacker-terminal-enhanced test-e2e
 - `make info` prints the live ports, container state, and extension versions;
   it is the first command to run when a test cannot find its browser.
 - Details:
-  [`dev-code-on-nuc-test-on-pp.md#local-alternative-the-chromium-compose-service`](dev-code-on-nuc-test-on-pp.md#local-alternative-the-chromium-compose-service)
-  and the [`2026-11-04` design log](../plans/2026/11/04/2026-11-04-headed-chromium-and-make-info.md).
+  [`dev-code-on-nuc-test-on-pp.md#local-alternative-the-chromium-compose-service`](../dev-env/dev-code-on-nuc-test-on-pp.md#local-alternative-the-chromium-compose-service)
+  and the [`2026-11-04` design log](../../plans/2026/11/04/2026-11-04-headed-chromium-and-make-info.md).
 
 ### Environment mechanics (reference stack)
 
@@ -713,26 +713,26 @@ and say so in the docs:
 The rules above are implemented here (paths relative to the meta repo):
 
 - Playbook for the reference extension:
-  `_submodules/vscode-hacker-markdown/docs/important/how-to-test.md`
-- Additional playbooks: `_submodules/vscode-hacker-browser/docs/important/how-to-test.md`
+  `_submodules/vscode-hacker-markdown/docs/important/testing/how-to-test.md`
+- Additional playbooks: `_submodules/vscode-hacker-browser/docs/important/testing/how-to-test.md`
   (committed `@playwright/test` suite: REST arranges/acts; a two-level
   `frameLocator` reaches the code-server webview; `data:` fixtures assert the
   embedded page's own DOM; the HTTP fixture server is the probe oracle —
   mixed-content, `custom.eval`-falsy, and `mainThreadWebview-` prefixed
   `viewType` traps; **non-destructive** global-settings snapshot/restore and the
   `maximizeBrowserEstate` layout step) and
-  `_submodules/vscode-hacker-path-picker/docs/important/how-to-test.md`
+  `_submodules/vscode-hacker-path-picker/docs/important/testing/how-to-test.md`
   (committed `@playwright/test` suite + `bun` pure-logic checks; dedicated
   fixture workspace that inherits the meta repo's trust; QuickPick traps;
   status-bar copy echo as the oracle — a host-side `clipboard.readText()` hangs
   under code-server)
-- Status-bar extension: `_submodules/vscode-hacker-stats-bar/docs/important/how-to-test.md`
+- Status-bar extension: `_submodules/vscode-hacker-stats-bar/docs/important/testing/how-to-test.md`
   (committed `@playwright/test` suite + `bun` pure-logic checks; unique
   **format markers** turn the shared status bar into a deterministic oracle; a
   fake `iftopd` TCP daemon pins the `portSpeed` rates and tooltip; `statsBar.*`
   are `machine-overridable`, so hygiene is verified by checksumming
   `Machine/settings.json`)
-- Terminal history extension: `_submodules/vscode-hacker-terminal-enhanced/docs/important/how-to-test.md`
+- Terminal history extension: `_submodules/vscode-hacker-terminal-enhanced/docs/important/testing/how-to-test.md`
   (committed `@playwright/test` suite + `bun` pure-logic checks; one webview
   rendered in five places — editor / panel / primary sidebar / secondary
   sidebar / separate window — as a `setContext`-gated `WebviewView` moved with
@@ -741,7 +741,7 @@ The rules above are implemented here (paths relative to the meta repo):
   `navigator.clipboard.writeText`; `node:sqlite` history + a `bun build` webview
   bundle; commands must avoid `;` and instant builtins for deterministic
   captures)
-- Environment / topology: `docs/important/dev-code-on-nuc-test-on-pp.md`
+- Environment / topology: `docs/important/dev-env/dev-code-on-nuc-test-on-pp.md`
 - Dual-topology CDP helper: `_submodules/vscode-hacker-markdown/tests/integration/cdp.ts`
   (`connectPreview()` + `openWorkbenchPage()` — the latter probes pages for
   `.monaco-workbench`, so stray browser tabs cannot hijack the session)
@@ -755,7 +755,7 @@ The rules above are implemented here (paths relative to the meta repo):
   `_submodules/vscode-hacker-markdown/docs/plans/2026/11/04/2026-11-04-narrow-preview-wide-tables.md`
 - REST control extension + its own committed suite:
   `_submodules/vscode-hacker-rest-control/`
-  (`docs/important/how-to-test.md`; `tests/playwright/` — the extension is both
+  (`docs/important/testing/how-to-test.md`; `tests/playwright/` — the extension is both
   the control channel and the system under test, so the suite asserts the HTTP
   contract too: falsy results box to `null`, `400` + JSON errors, query-string
   vs JSON body, loopback-only bind; a local fixture server is the oracle for

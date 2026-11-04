@@ -115,9 +115,12 @@ Details that matter:
   `sudo` — trusted network only.
 - `docker/chromium/cdp.conf` is the CDP front door. Change the port there, then
   restart the container. `make info` reads that file, so it follows the change.
+- The suites default to `CDP_PORT=9024` (the pp browser); set `CDP_PORT=9324`
+  for this browser, or they will target pp instead.
 - `make info` prints the live addresses, container state, and the installed vs
   package extension versions. It probes CDP, the canvas, code-server `/healthz`,
-  and REST Control.
+  and REST Control. It needs `bun`, `docker`, and `curl`; `NO_COLOR=1` disables
+  colour and `FORCE_COLOR=1` forces it.
 
 Troubleshooting:
 
@@ -129,7 +132,7 @@ curl -sk -o /dev/null -w '%{http_code}\n' https://127.0.0.1:9325/
 ```
 
 See the design log
-[`2026-11-04-headed-chromium-and-make-info.md`](../plans/2026/11/04/2026-11-04-headed-chromium-and-make-info.md)
+[`2026-11-04-headed-chromium-and-make-info.md`](../../plans/2026/11/04/2026-11-04-headed-chromium-and-make-info.md)
 for the port/CDP/auth/policy trials and lessons.
 
 ## code-server

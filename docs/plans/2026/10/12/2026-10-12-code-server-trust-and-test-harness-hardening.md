@@ -66,7 +66,7 @@ silently breaks whenever the checkout moves.
 | Wait for the async mermaid render and match **every** renderer | `markdown/tests/integration/mermaid_stale_check.ts` |
 | Accept any workbench page URL (a tailnet host is not `localhost`/`vscode-file`) | `markdown/tests/integration/plantuml_note_highlight_check.ts` |
 | Activate the text editor before the CDP-keyboard cursor checks | `markdown/tests/integration/test_preview.ts` |
-| Document that the `*_ix`/`*_check` probes are standalone, not one suite | `markdown/AGENTS.md`, `docs/important/how-to-test-all.md` |
+| Document that the `*_ix`/`*_check` probes are standalone, not one suite | `markdown/AGENTS.md`, `docs/important/testing/how-to-test-all.md` |
 
 ### 4. Mermaid stale-holder bug exposed by the harness fix
 
@@ -91,11 +91,11 @@ so a `closest()`-only check (the first cut) missed it and the check flaked
 
 ### 5. Docs
 
-- `docs/important/how-to-test-all.md` — how the harness handles trust (flag vs
+- `docs/important/testing/how-to-test-all.md` — how the harness handles trust (flag vs
   per-folder state; where trust is stored), the VSIX-vs-symlink install paths,
   the reload-once / orphaned-host note, and the "probes are not one suite"
   anti-pattern.
-- `docs/important/dev-code-on-nuc-test-on-pp.md` — container image, the trust
+- `docs/important/dev-env/dev-code-on-nuc-test-on-pp.md` — container image, the trust
   flag, and the recovery runbook.
 - `README.md` — pointer to the harness target and the playbook.
 - This document.
@@ -171,7 +171,7 @@ step.
 
 ## Lessons
 
-- **Read the existing playbook first.** `docs/important/how-to-test-all.md`
+- **Read the existing playbook first.** `docs/important/testing/how-to-test-all.md`
   already covered trust, the REST channel, install/restart hygiene, and even
   `security.workspace.trust.enabled`. Most of the session was re-deriving it.
 - **Environment trust belongs in the environment.** One compose flag beats a
@@ -210,13 +210,13 @@ regression set    custom_styles 6/6, media_controls 7/7, link_nav 3/3,
 | `docker-compose.yml` | `--disable-workspace-trust` on the code-server service |
 | `local/install-code-server.sh` (new) | version-matched container install |
 | `Makefile`, `README.md`, `AGENTS.md` | `install-code-server` target + docs |
-| `docs/important/how-to-test-all.md`, `…/dev-code-on-nuc-test-on-pp.md` | playbook + runbook updates |
+| `docs/important/testing/how-to-test-all.md`, `…/dev-env/dev-code-on-nuc-test-on-pp.md` | playbook + runbook updates |
 | `_submodules/vscode-hacker-markdown` | `7e27bcc` — stale.ts (renderer-agnostic) + 3 harness fixes + AGENTS |
 | `_submodules/vscode-hacker-rest-control` | `50b4d00` — `connectWorkbench` host-agnostic |
 
 ## Links
 
-- General playbook: [`docs/important/how-to-test-all.md`](../../../../important/how-to-test-all.md)
-- Topology / runbook: [`docs/important/dev-code-on-nuc-test-on-pp.md`](../../../../important/dev-code-on-nuc-test-on-pp.md)
-- Extension playbook: `_submodules/vscode-hacker-markdown/docs/important/how-to-test.md`
+- General playbook: [`docs/important/testing/how-to-test-all.md`](../../../../important/testing/how-to-test-all.md)
+- Topology / runbook: [`docs/important/dev-env/dev-code-on-nuc-test-on-pp.md`](../../../../important/dev-env/dev-code-on-nuc-test-on-pp.md)
+- Extension playbook: `_submodules/vscode-hacker-markdown/docs/important/testing/how-to-test.md`
 - Meta repo: [`README.md`](../../../../../README.md)

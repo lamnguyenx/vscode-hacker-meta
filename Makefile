@@ -4,6 +4,7 @@
 #   make install            -> `make install` in each _submodules/*/ that has a Makefile
 #   make install-code-server -> install the built VSIXs into the compose code-server
 #   make info               -> print the dev stack at a glance (read-only)
+#   make check-docs         -> README/docs index, link, and anchor check
 #
 # A failing submodule does not stop the others; the run exits non-zero and
 # prints the list of failures at the end.
@@ -13,7 +14,7 @@
 
 SUBMODULES := $(sort $(dir $(wildcard _submodules/*/Makefile)))
 
-.PHONY: build install list install-code-server info
+.PHONY: build install list install-code-server info check-docs
 
 build install:
 	@./local/make-all.sh $@ $(SUBMODULES)
@@ -32,3 +33,8 @@ list:
 # package-vs-installed state of every extension, paths and URLs.
 info:
 	@bun scripts/info.ts
+
+# Verify every docs/important doc is indexed from its repo's README, every
+# relative link resolves, and every README/doc anchor exists.
+check-docs:
+	@bun scripts/check-docs.ts

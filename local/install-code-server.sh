@@ -18,7 +18,7 @@
 # reload the window ONCE (or `hotload code-server`) so a fresh extension host
 # loads the new build — do not reload repeatedly: the extension host lingers for
 # VSCODE_RECONNECTION_GRACE_TIME (3h), so extra reloads leave orphaned hosts
-# squatting the pinned REST port. See docs/important/how-to-test-all.md §9.
+# squatting the pinned REST port. See docs/important/testing/how-to-test-all.md §9.
 set -uo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -22,19 +22,15 @@ git clone --recurse-submodules <repo-url>
 code .
 ```
 
-Each extension lives as a git submodule in `_submodules/`. All share the same build/install pattern:
+Each extension lives as a git submodule in `_submodules/`. Build and install one directly:
 
 ```bash
 cd _submodules/vscode-hacker-<name>
-
-# Build
 make build        # produces build/<publisher>.<name>-<version>.vsix
-
-# Install
-make install          # installs to both code and code-server
+make install      # installs to both code and code-server
 ```
 
-Or, from the meta repo root, run the same target in **every** submodule at once:
+Or run the same target in **every** submodule from the meta repo root:
 
 ```bash
 make build               # `make build` in each _submodules/*
@@ -47,91 +43,24 @@ make info                # containers, ports, extension versions, URLs
 A failing submodule does not stop the others; the run exits non-zero and lists
 the failures at the end.
 
-## Build & release
+## Docs
 
-All extensions follow a unified convention:
+### [Dev environment](docs/important/dev-env/)
 
-- **Output**: `build/<publisher>.<name>-<version>.vsix`
-- **Publisher**: `lamnguyenx`
-- **Version**: CalVer `YYYY.M.PATCH`, one per extension (see the table above)
-- **`.gitignore`**: shared minimal template via the submodules
+- [Dev on nuc, test on pp](docs/important/dev-env/dev-code-on-nuc-test-on-pp.md): the code-server + browser topology, ports, TLS, the local Chromium service, and the recovery runbook.
 
-Tagging and releasing is done per-repo using `gh`:
+### [Release](docs/important/release/)
 
-```bash
-cd _submodules/vscode-hacker-<name>
-VERSION=$(node -p "require('./package.json').version")
-git tag "v$VERSION"
-git push origin "v$VERSION"
-gh release create "v$VERSION" build/*.vsix --generate-notes
-```
+- [Build and release](docs/important/release/build-and-release.md): VSIX naming, CalVer, per-repo tagging, `gh release`, and the summary table.
 
-## Dev harness (code-server)
+### [Testing](docs/important/testing/)
 
-The extensions are developed and tested against a shared code-server started
-from `docker-compose.yml`:
+- [How to test a VS Code extension](docs/important/testing/how-to-test-all.md): the general playbook — environment choice, REST arrange / CDP assert, state hygiene, pinned ports, cache-busting, and anti-patterns.
 
-- The `code-server` service runs with **`--disable-workspace-trust`**, so the
-  session is trusted and user extensions activate without a trust prompt — no
-  per-extension `capabilities.untrustedWorkspaces` needed. (The container only
-  reaches the mounted git tree + config, so this is "trust the mounts".)
-- `make install-code-server` installs each submodule's built VSIX into that
-  container (picking the VSIX that matches each `package.json` version). The
-  per-submodule `make install-code-server` runs the *host* `code-server` CLI,
-  which writes to a different profile and never reaches the container. Reload
-  the workbench window **once** afterwards.
-- CDP tooling for the pp browser connects to `9024`; the REST control channel
-  listens on `40620` (`HACKER_REST_CONTROL_PORT`).
+`make check-docs` verifies this index and every local link/anchor in it and in
+the topic docs.
 
-### Local headed Chromium (optional)
+## Elsewhere
 
-`docker compose up -d chromium` starts a real, windowed Chromium on a Selkies
-Wayland desktop — a self-contained local alternative to the pp browser.
-
-| Endpoint | Address | Notes |
-| --- | --- | --- |
-| Canvas | `https://0.0.0.0:9325` | Selkies desktop, 1280×720 (16:9), no auth by default |
-| CDP | `http://0.0.0.0:9324` | nginx → Chromium `127.0.0.1:9222` |
-| REST Control | `http://127.0.0.1:40620` | loopback only, from code-server |
-
-```bash
-docker compose up -d chromium
-# first run only: open the canvas and log in to https://localhost:9620 once;
-# exp/chromium keeps the session for later runs.
-CDP_PORT=9324 make -C _submodules/vscode-hacker-terminal-enhanced test-e2e
-docker compose logs -f chromium
-```
-
-- The suites default to `CDP_PORT=9024` (pp); set `CDP_PORT=9324` for this
-  browser, or they will target the pp browser instead.
-- `CANVAS_PORT` changes the canvas port; `CANVAS_WIDTH` / `CANVAS_HEIGHT`
-  change the desktop size (default `1280x720`). The CDP listener is the
-  `listen` directive in `docker/chromium/cdp.conf`; edit it and restart.
-- The bookmark bar is hidden by a managed policy
-  (`docker/chromium/policies/`). Verify at `chrome://policy`.
-- The canvas has **no auth by default**; uncomment `CUSTOM_USER` / `PASSWORD`
-  in the compose service and recreate to enable basic auth. CDP is
-  unauthenticated too, and both bind `0.0.0.0`; the canvas desktop has a
-  terminal with passwordless `sudo`. Trusted networks only.
-- Canvas TLS is self-signed, and the browser runs with
-  `--ignore-certificate-errors` because code-server uses a mkcert certificate.
-
-### `make info`
-
-`make info` is a read-only snapshot of the harness: compose services, live
-probes, the code-server / canvas / CDP / REST addresses, every extension's
-package vs installed version, and the paths involved. It needs `bun`, `docker`,
-and `curl`. Colour is TTY-aware; `NO_COLOR=1` disables it, `FORCE_COLOR=1`
-forces it.
-
-See [`docs/important/how-to-test-all.md`](docs/important/how-to-test-all.md)
-(general playbook), [`docs/important/dev-code-on-nuc-test-on-pp.md`](docs/important/dev-code-on-nuc-test-on-pp.md)
-(topology + recovery runbook), and the dated notes under
-[`docs/plans/`](docs/plans/) — most recently
-[`2026-11-04-headed-chromium-and-make-info.md`](docs/plans/2026/11/04/2026-11-04-headed-chromium-and-make-info.md).
-
-## Generate summary table
-
-```bash
-python3 local/get_summary.py
-```
+- Dated design logs live under [`docs/plans/`](docs/plans/); the most recent is [2026-11-04 headed Chromium and `make info`](docs/plans/2026/11/04/2026-11-04-headed-chromium-and-make-info.md).
+- Per-extension docs live in each submodule's `README.md` and `docs/important/` (see the table above).
