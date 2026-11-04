@@ -475,6 +475,12 @@ hotload code-server             # kill + up -d --no-deps --force-recreate
   the compose `code-server`, picking the VSIX that matches each `package.json`
   version (so stale VSIXs accumulated in `build/` are ignored) and passing the
   host mount source as `--user-data-dir`.
+- **Remote hosts:** `make install-ssh` (→ `scripts/install-ssh.ts`) picks
+  extensions and `~/.ssh/config` hosts, builds missing/stale VSIXs, and installs
+  into each host's *running* code-server over one tar stream (it derives the
+  binary from the `out/node/entry` process and honours `--user-data-dir`).
+  `ARGS="--all --dry-run"` previews the plan; reload each target window once
+  afterwards.
 - **Reload the window once, not repeatedly.** The extension host ignores
   disconnects for `VSCODE_RECONNECTION_GRACE_TIME` (3h here), so each reload
   spawns a new host while the previous one lingers — orphaned hosts keep the

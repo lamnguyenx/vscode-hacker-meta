@@ -170,6 +170,38 @@ HTTPS server listening on https://0.0.0.0:9620/
 Then open `https://localhost:9620` in the pp browser (log in with the password
 from the config file above). The ssh `RemoteForward` carries it back to nuc.
 
+## Installing extensions on other machines
+
+`make install-ssh` (→ `scripts/install-ssh.ts`) pushes local builds to the
+code-server hosts listed in `~/.ssh/config`:
+
+```bash
+make install-ssh                                   # pick extensions + hosts
+make install-ssh ARGS="--all --dry-run"            # preview, no build/install
+make install-ssh ARGS="-e hacker-markdown -H pp,mac"
+```
+
+- Two checkbox lists: extensions (all preselected) then concrete `Host` aliases
+  (none preselected). `space` toggles, `a` all, `enter` confirms, `q` quits.
+  Without a TTY, pass `-e`/`-H` or `--all`.
+- Only missing/stale VSIXs are built (`--build` forces, `--no-build` installs
+  the existing file). "Stale" means a packaged file is newer than the VSIX.
+- One tar stream per host; the remote side installs into the code-server that
+  is **actually running** — it reads the `out/node/entry` process rather than
+  trusting `PATH` (pp's `/usr/bin/code-server` is an old 4.132.0, mac's
+  `~/.local/bin` is not the running copy, and wsk has no CLI on `PATH`).
+  It also honours a running `--user-data-dir`.
+- `--target auto` (default) prefers code-server and falls back to `code`;
+  `--target code` / `code-server` pin it. `-j N` sets host parallelism (default
+  4).
+- SSH uses keys only (`BatchMode`), accepts new host keys, and passes
+  `ClearAllForwardings=yes`, so pp's many `LocalForward`/`RemoteForward` rules
+  do not bind ports or print warnings during install.
+
+Reload each target window once afterwards so a fresh extension host loads the
+build. The detection rules and the trial-and-error behind them are in the
+[design log](../../plans/2026/11/04/2026-11-04-install-ssh-multi-host.md).
+
 ## TLS certificate
 
 Self-signed via mkcert, signed by the local mkcert CA (`~/.local/share/mkcert`, present on

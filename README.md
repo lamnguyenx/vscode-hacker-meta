@@ -36,12 +36,31 @@ Or run the same target in **every** submodule from the meta repo root:
 make build               # `make build` in each _submodules/*
 make install             # `make install` in each _submodules/*
 make install-code-server # install the built VSIXs into the compose code-server
+make install-ssh         # pick extensions + SSH hosts, build, install remotely
 make list                # print the resolved submodule list
 make info                # containers, ports, extension versions, URLs
 ```
 
 A failing submodule does not stop the others; the run exits non-zero and lists
 the failures at the end.
+
+### Install on other machines
+
+`make install-ssh` reads the concrete `Host` aliases from `~/.ssh/config`,
+asks which extensions and which hosts to target, builds any missing or stale
+VSIXs, and installs them into each host's running code-server (it prefers the
+binary of the running instance, and honours its `--user-data-dir`).
+
+```bash
+make install-ssh                                  # interactive multi-select
+make install-ssh ARGS="--all --dry-run"           # preview without building
+make install-ssh ARGS="-e hacker-markdown -H wsk,mac"
+```
+
+Use `--target code` to install with the `code` CLI instead, `--build` to force
+a rebuild, and `--jobs N` to change how many hosts install in parallel. Reload
+each target window once afterwards so a fresh extension host picks up the new
+build.
 
 ## Docs
 
@@ -62,5 +81,5 @@ the topic docs.
 
 ## Elsewhere
 
-- Dated design logs live under [`docs/plans/`](docs/plans/); the most recent is [2026-11-04 headed Chromium and `make info`](docs/plans/2026/11/04/2026-11-04-headed-chromium-and-make-info.md).
+- Dated design logs live under [`docs/plans/`](docs/plans/); the most recent is [2026-11-04 `make install-ssh`](docs/plans/2026/11/04/2026-11-04-install-ssh-multi-host.md).
 - Per-extension docs live in each submodule's `README.md` and `docs/important/` (see the table above).

@@ -3,6 +3,7 @@
 #   make build              -> `make build`   in each _submodules/*/ that has a Makefile
 #   make install            -> `make install` in each _submodules/*/ that has a Makefile
 #   make install-code-server -> install the built VSIXs into the compose code-server
+#   make install-ssh        -> pick extensions + SSH hosts, build, install remotely
 #   make info               -> print the dev stack at a glance (read-only)
 #   make check-docs         -> README/docs index, link, and anchor check
 #
@@ -14,7 +15,7 @@
 
 SUBMODULES := $(sort $(dir $(wildcard _submodules/*/Makefile)))
 
-.PHONY: build install list install-code-server info check-docs
+.PHONY: build install list install-code-server install-ssh info check-docs
 
 build install:
 	@./local/make-all.sh $@ $(SUBMODULES)
@@ -24,6 +25,16 @@ build install:
 # (host `code` + host `code-server`). Run `make build` first.
 install-code-server:
 	@./local/install-code-server.sh
+
+# Interactive: pick extensions (multi-select) and SSH hosts (multi-select, from
+# ~/.ssh/config), build missing/stale VSIXs, and install into each host's
+# code-server (or `code` CLI) over one tar-over-ssh stream per host.
+# Nothing is preselected except extensions; `a` toggles all.
+#   make install-ssh
+#   make install-ssh ARGS="--all --dry-run"
+#   make install-ssh ARGS="-e hacker-markdown -H wsk,mac"
+install-ssh:
+	@bun scripts/install-ssh.ts $(ARGS)
 
 # Print the resolved submodule list (one per line).
 list:
