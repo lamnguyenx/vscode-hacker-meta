@@ -3,13 +3,17 @@
 Setup for editing code on **nuc** (this machine) via code-server, and testing it in a
 real Chromium browser running on **pp**, driven over CDP from opencode's MCP tools.
 
+For a self-contained alternative without pp or ssh, jump to
+[the local `chromium` service](#local-alternative-the-chromium-compose-service):
+it runs a headed Chromium in Docker with CDP on `9324` and the canvas on `9325`.
+
 ## Topology
 
 ```mermaid
 flowchart TB
   subgraph nuc["nuc · 100.82.136.100 · nuc.tail0ec64c.ts.net"]
     mcp["opencode · chrome-devtools MCP<br/>--browser-url=http://127.0.0.1:9024"]
-    cs["code-server (docker)<br/>localhost:9620 → container 9120"]
+    cs["code-server (docker)<br/>host network · 0.0.0.0:9620"]
   end
 
   subgraph pp["pp · 100.118.47.39 · pp.tail0ec64c.ts.net"]
@@ -74,9 +78,64 @@ The browser on pp is launched as:
 There are sibling profiles for 9022/9023 (`cdp-9022`, `cdp-9023`) if you need more than
 one browser at a time.
 
+### Local alternative: the `chromium` compose service
+
+The same CDP contract can be served from the dev box without pp:
+
+```bash
+docker compose up -d chromium
+curl -s http://127.0.0.1:9324/json/version   # CDP
+# watch it at https://0.0.0.0:9325 (no auth; 1280x720, 16:9)
+CDP_PORT=9324 make -C _submodules/vscode-hacker-terminal-enhanced test-e2e
+```
+
+It is a headed Chromium on a Selkies Wayland desktop, on the host network so
+`https://localhost:9620` works from the browser.
+
+| Endpoint | Address | Notes |
+| --- | --- | --- |
+| Canvas | `https://0.0.0.0:9325` | Selkies desktop, no auth by default, 1280x720 (16:9) |
+| CDP | `http://0.0.0.0:9324` | nginx → Chromium `127.0.0.1:9222` |
+| REST Control | `http://127.0.0.1:40620` | loopback only, shared with code-server |
+
+The browser profile lives in `exp/chromium`; the first run needs a manual
+code-server login in the canvas (`https://localhost:9620`, password in
+`dot-config/code-server/config.yaml`), and later runs reuse the session.
+
+Details that matter:
+
+- `1280x720` is the **desktop** ratio; Chrome's toolbar makes the page viewport
+  shorter. Override with `CANVAS_WIDTH`/`CANVAS_HEIGHT` (e.g. `1920`/`1080`).
+- The bookmark bar is hidden by a managed policy in
+  `docker/chromium/policies/`. Verify with `chrome://policy`.
+- The canvas has **no auth by default**; set `CUSTOM_USER` and `PASSWORD` in the
+  compose service to put basic auth back, then
+  `docker compose up -d --force-recreate chromium`. CDP is unauthenticated too.
+  Both bind `0.0.0.0`, and the canvas desktop has a terminal with passwordless
+  `sudo` — trusted network only.
+- `docker/chromium/cdp.conf` is the CDP front door. Change the port there, then
+  restart the container. `make info` reads that file, so it follows the change.
+- `make info` prints the live addresses, container state, and the installed vs
+  package extension versions. It probes CDP, the canvas, code-server `/healthz`,
+  and REST Control.
+
+Troubleshooting:
+
+```bash
+ss -ltnp | grep -E ':(9324|9325|9222)'   # 0.0.0.0:9324/9325, 127.0.0.1:9222
+docker logs --tail 50 vscode-hacker-meta-chromium-1
+curl -s http://127.0.0.1:9324/json/version
+curl -sk -o /dev/null -w '%{http_code}\n' https://127.0.0.1:9325/
+```
+
+See the design log
+[`2026-11-04-headed-chromium-and-make-info.md`](../plans/2026/11/04/2026-11-04-headed-chromium-and-make-info.md)
+for the port/CDP/auth/policy trials and lessons.
+
 ## code-server
 
-`docker-compose.yml` (repo root) runs `codercom/code-server:4.139.1` with
+`docker-compose.yml` (repo root) builds `vscode-hacker-meta/code-server:4.139.1`
+from `docker/code-server` (base `codercom/code-server:4.139.1`) and runs it with
 `network_mode: host` and `--bind-addr 0.0.0.0:9620`:
 
 - config mounted from `./dot-config/code-server/config.yaml`
@@ -100,7 +159,7 @@ Healthy startup logs look like:
 ```
 Using user-data-dir /home/lamnt45/.local/share/code-server
 Using config file /home/lamnt45/.config/code-server/config.yaml
-HTTPS server listening on https://0.0.0.0:9120/
+HTTPS server listening on https://0.0.0.0:9620/
   - Using password from /home/lamnt45/.config/code-server/config.yaml
   - Using certificate for HTTPS: /home/lamnt45/.config/code-server/localhost.pem
 ```

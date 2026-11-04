@@ -18,8 +18,9 @@ implementation's.
 
 ## TL;DR
 
-1. **Ask the user which environment** — code-server (preferred) or a local dev
-   host — before running anything.
+1. **Ask the user which environment** — code-server (preferred; the browser can
+   be on pp or the local `chromium` container) or a local dev host — before
+   running anything.
 2. **Separate arrange/act from assert:** drive the extension host through a
    control API (REST `executeCommand`/eval); read observable state through CDP.
 3. **Prefer deterministic API calls over keyboard automation.** Browser CDP
@@ -35,6 +36,8 @@ implementation's.
 8. **Never mutate the developer's environment without restoring it.** Snapshot
    and put back user settings; the workbench, profile and window layout are
    shared, persistent state.
+9. **Snapshot the harness before debugging:** `make info` prints the compose
+   services, live ports, extension package-vs-installed versions, and URLs.
 
 ---
 
@@ -54,6 +57,34 @@ same-origin iframes** under code-server. Two supported environments:
 **Rule (agents):** ask the user which environment they want; default to Option A
 when they have no preference. In Option A the webview is **not** a separate CDP
 target — you evaluate on the workbench page and dive through iframes.
+
+### Local headed browser (this harness)
+
+Option A's browser does not have to live on another host. This repo's compose
+stack can run a **headed Chromium** (a Selkies desktop) on the dev box:
+
+```bash
+docker compose up -d chromium
+CDP_PORT=9324 make -C _submodules/vscode-hacker-terminal-enhanced test-e2e
+```
+
+| Endpoint | Address | Notes |
+| --- | --- | --- |
+| Canvas | `https://0.0.0.0:9325` | 1280x720 (16:9), no auth by default |
+| CDP | `http://0.0.0.0:9324` | nginx → Chromium `127.0.0.1:9222` |
+| REST Control | `http://127.0.0.1:40620` | loopback only |
+
+- The suites default to `CDP_PORT=9024` (the pp browser); set `CDP_PORT=9324`
+  for this one, or they will target the pp browser instead.
+- First run: open the canvas, log into `https://localhost:9620` once. The
+  profile under `exp/chromium` keeps the session for later runs.
+- **CDP and the canvas are unauthenticated** and bind `0.0.0.0`. Keep them on a
+  trusted network; the canvas desktop has a terminal with passwordless `sudo`.
+- `make info` prints the live ports, container state, and extension versions;
+  it is the first command to run when a test cannot find its browser.
+- Details:
+  [`dev-code-on-nuc-test-on-pp.md#local-alternative-the-chromium-compose-service`](dev-code-on-nuc-test-on-pp.md#local-alternative-the-chromium-compose-service)
+  and the [`2026-11-04` design log](../plans/2026/11/04/2026-11-04-headed-chromium-and-make-info.md).
 
 ### Environment mechanics (reference stack)
 

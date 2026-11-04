@@ -58,6 +58,80 @@ services:
       # per-folder trust setting).
       - --disable-workspace-trust
 
+  # Headed Chromium — local browser for the E2E suites and manual checks.
+  #
+  # This is the linuxserver/chromium image (Selkies: a real, windowed Chromium
+  # on a streamed Wayland desktop — not headless). It is a local alternative to
+  # the browser on pp: the suites connect to it over CDP at CDP_PORT, and you
+  # can watch/drive the same browser at the canvas URL.
+  #
+  #   docker compose up -d chromium
+  #   curl -s http://0.0.0.0:9324/json/version   # CDP
+  #   https://0.0.0.0:9325                       # canvas (no auth by default)
+  #
+  # Both endpoints bind 0.0.0.0. The canvas is the image's nginx; CDP is a
+  # second nginx server block (docker/chromium/cdp.conf) because Chromium
+  # itself only ever binds CDP on its own loopback and ignores
+  # --remote-debugging-address. The proxy is raw WebSocket-capable, so
+  # Playwright's connectOverCDP works through it.
+  #
+  # Networking is `host`, deliberately: the tests open https://localhost:9620,
+  # and code-server also uses host networking; a bridge container's localhost
+  # would be itself. There is no `ports:` block for that reason.
+  #
+  # WARNING: neither CDP (9324) nor the canvas (9325) has authentication by
+  # default. Both bind 0.0.0.0, so anyone who can reach this host can drive the
+  # browser, open the canvas desktop, and use the code-server session in its
+  # profile. Keep this on a trusted network, or tunnel it. To put basic auth
+  # back on the canvas, add CUSTOM_USER and PASSWORD below.
+  chromium:
+    image: lscr.io/linuxserver/chromium:version-1aca5d17
+    network_mode: host
+    environment:
+      PUID: "${UID:-1000}"
+      PGID: "${GID:-1000}"
+      TZ: Etc/UTC
+      # The image's watchdog relaunches the desktop autostart (and so
+      # Chromium) when it dies; without it a dead browser leaves the canvas
+      # answering 502.
+      RESTART_APP: "true"
+      PIXELFLUX_WAYLAND: "true"
+      # Canvas: HTTPS on 0.0.0.0. The image's nginx binds all interfaces.
+      CUSTOM_HTTPS_PORT: "${CANVAS_PORT:-9325}"
+      # Canvas auth is off: without PASSWORD the image's nginx serves the
+      # desktop with no login. Uncomment both lines to put basic auth back
+      # (and recreate the container, because init-nginx builds the htpasswd
+      # file at startup).
+      # CUSTOM_USER: "${CHROMIUM_USER:-chromium}"
+      # PASSWORD: "${CHROMIUM_PASSWORD:-chromium}"
+      # A fixed 16:9 desktop (1280x720) by default. Selkies otherwise sizes
+      # the display to the viewer's window, and Chromium cannot go below 500px
+      # wide. Override with CANVAS_WIDTH/CANVAS_HEIGHT, e.g. 1920x1080.
+      SELKIES_MANUAL_RESOLUTION: "true"
+      SELKIES_MANUAL_WIDTH: "${CANVAS_WIDTH:-1280}"
+      SELKIES_MANUAL_HEIGHT: "${CANVAS_HEIGHT:-720}"
+      # CDP stays on Chromium's own loopback; the nginx server block in
+      # docker/chromium/cdp.conf publishes it on 0.0.0.0:9324.
+      # `about:blank`: a deterministic starting page. `--ignore-certificate-
+      # errors`: code-server uses a mkcert self-signed certificate.
+      CHROME_CLI: >-
+        --remote-debugging-port=9222
+        --remote-allow-origins=*
+        --ignore-certificate-errors
+        --hide-crash-restore-bubble
+        about:blank
+    volumes:
+      # Browser profile + canvas certificate/config. Survives recreation;
+      # delete this directory to start from a clean browser.
+      - ./exp/chromium:/config
+      # CDP front door on 0.0.0.0:9324 -> Chromium's 127.0.0.1:9222.
+      # Edit cdp.conf, then `docker compose restart chromium`.
+      - ./docker/chromium/cdp.conf:/etc/nginx/conf.d/cdp.conf:ro
+      # Managed Chromium policy (bookmark bar off); read at browser start.
+      - ./docker/chromium/policies:/etc/chromium/policies/managed:ro
+    shm_size: "1gb"
+    restart: unless-stopped
+
   # Hacker Terminal Enhanced — browser dev harness.
   #
   # Serves the real history panel (media/popup.*) in a plain browser against a

@@ -3,6 +3,7 @@
 #   make build              -> `make build`   in each _submodules/*/ that has a Makefile
 #   make install            -> `make install` in each _submodules/*/ that has a Makefile
 #   make install-code-server -> install the built VSIXs into the compose code-server
+#   make info               -> print the dev stack at a glance (read-only)
 #
 # A failing submodule does not stop the others; the run exits non-zero and
 # prints the list of failures at the end.
@@ -12,7 +13,7 @@
 
 SUBMODULES := $(sort $(dir $(wildcard _submodules/*/Makefile)))
 
-.PHONY: build install list install-code-server
+.PHONY: build install list install-code-server info
 
 build install:
 	@./local/make-all.sh $@ $(SUBMODULES)
@@ -26,3 +27,8 @@ install-code-server:
 # Print the resolved submodule list (one per line).
 list:
 	@printf '%s\n' $(SUBMODULES)
+
+# Print the dev stack at a glance: containers, live probes, ports, the
+# package-vs-installed state of every extension, paths and URLs.
+info:
+	@bun scripts/info.ts
