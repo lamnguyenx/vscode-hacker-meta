@@ -488,6 +488,13 @@ hotload code-server             # kill + up -d --no-deps --force-recreate
   visible window is served by a *different* host. Prefer a single reload or
   `hotload code-server`, and confirm the REST port maps to the live host
   (`custom.workspaceFolders` / the status-bar `RC Port:` item) before driving it.
+- **A stale host changes the rendered UI, not just command execution.** An
+  editor-title action backed by `contributes.commands[].icon` can fall back to
+  its long `title` text while the host is disconnected ("Cannot reconnect"),
+  and a view container's "Move To" menu still lists only the *other*
+  locations. Reload once before calling either a manifest or placement bug.
+  To keep a qualified palette name but a short menu label, contribute
+  `category` + a short `title` rather than prefixing `title`.
 
 **Install into the profile the running host actually loads.** There can be more
 than one code-server data dir (a Docker mount source *and* the host's real
