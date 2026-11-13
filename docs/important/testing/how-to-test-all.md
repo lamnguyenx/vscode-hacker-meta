@@ -76,8 +76,9 @@ CDP_PORT=9324 make -C _submodules/vscode-hacker-terminal-enhanced test-e2e
 
 - The suites default to `CDP_PORT=9024` (the pp browser); set `CDP_PORT=9324`
   for this one, or they will target the pp browser instead.
-- First run: open the canvas, log into `https://localhost:9620` once. The
-  profile under `exp/chromium` keeps the session for later runs.
+- First run: open the canvas and navigate to `https://localhost:9620`;
+  code-server runs with `--auth none`, so there is no login. The profile under
+  `exp/chromium` keeps the session for later runs.
 - **CDP and the canvas are unauthenticated** and bind `0.0.0.0`. Keep them on a
   trusted network; the canvas desktop has a terminal with passwordless `sudo`.
 - `make info` prints the live ports, container state, and extension versions;
@@ -397,7 +398,7 @@ loaded page's DOM (`contentDocument` is inaccessible), and a failed load is
   it is rot, not a regression: `showTextDocument` stops resolving while a plain
   `vscode.open` still works, and a deep webview scan hits a preview iframe whose
   document never loaded. Restart code-server **and** the browser (Chromium
-  restart keeps the profile/login but drops the stale workbench session); a
+  restart keeps the profile but drops the stale workbench session); a
   window reload can leave the half-dead page and an orphaned extension host.
 - **Tests must not leave tracked fixtures dirty.** `git checkout` fixtures after
   a run if a failed input path leaked typed text.

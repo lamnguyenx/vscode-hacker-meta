@@ -98,9 +98,9 @@ It is a headed Chromium on a Selkies Wayland desktop, on the host network so
 | CDP | `http://0.0.0.0:9324` | nginx → Chromium `127.0.0.1:9222` |
 | REST Control | `http://127.0.0.1:40620` | loopback only, shared with code-server |
 
-The browser profile lives in `exp/chromium`; the first run needs a manual
-code-server login in the canvas (`https://localhost:9620`, password in
-`dot-config/code-server/config.yaml`), and later runs reuse the session.
+The browser profile lives in `exp/chromium`; code-server runs with
+`--auth none`, so the first run lands straight in the workbench at
+`https://localhost:9620` with no login, and later runs reuse the session.
 
 Details that matter:
 
@@ -142,7 +142,7 @@ from `docker/code-server` (base `codercom/code-server:4.139.1`) and runs it with
 `network_mode: host` and `--bind-addr 0.0.0.0:9620`:
 
 - config mounted from `./dot-config/code-server/config.yaml`
-  (contains the login password)
+  (`auth: none`, matching the compose `--auth none`; no login prompt)
 - user data (extensions, settings, logs) mounted from `exp/code-server/.local/share/code-server`
 - repo mounted read-only from `${HOME}/git`
 - runs with **`--disable-workspace-trust`** (compose `command:`): the session is
@@ -163,12 +163,12 @@ Healthy startup logs look like:
 Using user-data-dir /home/lamnt45/.local/share/code-server
 Using config file /home/lamnt45/.config/code-server/config.yaml
 HTTPS server listening on https://0.0.0.0:9620/
-  - Using password from /home/lamnt45/.config/code-server/config.yaml
+  - Authentication is disabled
   - Using certificate for HTTPS: /home/lamnt45/.config/code-server/localhost.pem
 ```
 
-Then open `https://localhost:9620` in the pp browser (log in with the password
-from the config file above). The ssh `RemoteForward` carries it back to nuc.
+Then open `https://localhost:9620` in the pp browser; there is no login prompt.
+The ssh `RemoteForward` carries it back to nuc.
 
 ## Installing extensions on other machines
 
@@ -239,17 +239,17 @@ Symptom → cause → fix, from a session that hit all of these:
 | `chromium.connectOverCDP('http://127.0.0.1:9024')` connects the socket then times out | Stray blank / Vivaldi start-page targets stall target attach | Close them: `curl -s http://127.0.0.1:9024/json/close/<targetId>` (from `/json/list`), retry |
 | `PREVIEW_TIMEOUT` / palette input types into nothing while the preview is visibly open | A stray `chrome://newtab` or `about:blank` tab is the first CDP `page` target; helpers that pick pages by order drive it | Probe pages for `.monaco-workbench` (markdown repo's `openWorkbenchPage()`), or close the stray tabs; never index page targets by order |
 | After several suites: `showTextDocument` never resolves (a plain `vscode.open` still works), deep scans hit a preview iframe with no document, `NO_PREVIEW` | Accumulated workbench rot — piled-up preview panels, orphaned iframes, stale extension host | Restart **both** `code-server` and `chromium`, reopen the workspace, re-run `open_view.ts`; a window reload alone can leave the half-dead page |
-| Browser restarted on the code-server **login page** | CDP profile lost its auth cookie | Log in (password in `dot-config/code-server/config.yaml`), by hand or a raw CDP `Runtime.evaluate` form submit |
+| Browser restarted on the code-server **login page** | Auth is back on: compose lost `--auth none`, or the config says `auth: password` | Restore `--auth none` (compose command + config) and recreate code-server |
 | A `*`/`onStartupFinished` extension never activates | Not installed for this profile, or trust | Confirm with `code-server --list-extensions --user-data-dir … --extensions-dir …`; check `logs/<ts>/exthost*/remoteexthost.log` |
 | A "missing command" error after a container recreate | Fresh host has not activated the extension (`onCommand:` gating) | Invoke the command once to force activation before enumerating commands |
 | Settings you didn't change are different | A test mutated them; settings persist | Restore from VS Code **local history** (`…/code-server/User/History/<id>/*.json`) |
 
 Prefer the order: check trust → prune stray CDP targets → reload the tab
 **once** → restart the **browser** (`docker compose restart chromium`; the
-profile keeps the code-server login, but tabs are dropped, so navigate back to
+profile keeps the code-server session, but tabs are dropped, so navigate back to
 the workspace URL) → *only then* recreate code-server. With
-`--disable-workspace-trust` a recreate no longer resets trust, but it costs a
-re-login, and (per the general playbook) repeated reloads leave orphaned
+`--disable-workspace-trust` a recreate no longer resets trust, but the open tab
+goes stale, and (per the general playbook) repeated reloads leave orphaned
 extension hosts that keep squatting the REST port.
 
 ## Gotchas
@@ -260,7 +260,7 @@ extension hosts that keep squatting the REST port.
   `connectOverCDP` / `Runtime.evaluate` then hang during navigation even though
   `/json/list` shows the workbench page. `docker compose restart chromium` and
   navigate to `https://localhost:9620/?folder=…`; the `exp/chromium` profile
-  keeps the login.
+  keeps the session.
 - **`command: |` with `\` line continuations in docker-compose breaks code-server flags.**
   YAML keeps the newlines, compose turns `\`+newline into a literal `\n` in the next argv
   token, so `--config`/`--user-data-dir` are not parsed (they land in positional args).

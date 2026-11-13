@@ -65,6 +65,7 @@ WORKDIR /
         --mount=type=cache,target=/var/lib/apt \
         apt-fast update && \
         MAXNUM=8 apt-fast install --no-install-recommends -y \
+            make \
             tig \
             gdu \
             git
@@ -73,16 +74,21 @@ USER 1000
 
 ENV HOME=/home/coder
 
+# bach installs its launcher into ~/.local/bin and its activation block only
+# runs `bach init` when it is already on PATH.
+ENV PATH=/home/coder/.local/bin:$PATH
+
 WORKDIR /home/coder
 
     # bach: modular bash configuration for the `coder` user. Its installer bakes
     # the clone's absolute path into ~/.bashrc, so it must live at a fixed path.
     #
     # BACH_REF is both the git ref to fetch (branch, tag, or commit SHA) and the
-    # cache key, so a new value re-clones. Bust the cache with:
-    #   docker compose build \
-    #       --build-arg BACH_REF=$(git ls-remote https://github.com/lamnguyenx/bach.git HEAD | cut -f1)
-    ARG BACH_REF=HEAD
+    # cache key, so a new value re-clones. Pinned to a commit so upstream
+    # changes cannot break the build; bump it deliberately with:
+    #   BACH_REF=$(git ls-remote https://github.com/lamnguyenx/bach.git HEAD | cut -f1) \
+    #       docker compose build code-server
+    ARG BACH_REF=629d6120e8caf5e8ac5087c1cf6dbe993c189ada
 
     RUN git init .local/share/bach && \
         cd .local/share/bach && \

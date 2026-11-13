@@ -16,11 +16,13 @@ services:
     build:
       context: ./docker/code-server
       # Same proxy vars as the runtime environment (only matters when building
-      # behind a proxy; empty by default). BACH_REF busts the bach clone layer
-      # when it changes, e.g. `BACH_REF=$(git ls-remote ... HEAD | cut -f1)`.
+      # behind a proxy; empty by default). BACH_REF is pinned to a bach commit
+      # (the same default as the Dockerfile) and busts the clone layer when
+      # bumped, e.g. `BACH_REF=$(git ls-remote ... HEAD | cut -f1) docker
+      # compose build code-server`.
       args:
         <<: *proxy
-        BACH_REF: ${BACH_REF:-HEAD}
+        BACH_REF: ${BACH_REF:-629d6120e8caf5e8ac5087c1cf6dbe993c189ada}
         BASE_IMAGE: codercom/code-server:4.139.1
     image: vscode-hacker-meta/code-server:4.139.1
     network_mode: host
@@ -50,6 +52,12 @@ services:
       - ${HOME}/.config/code-server/config.yaml
       - --user-data-dir
       - ${HOME}/.local/share/code-server
+      # No login prompt: tests and the canvas land straight in the workbench.
+      # This binds 0.0.0.0:9620 while the Docker socket is mounted, so anyone
+      # who can reach the port can drive the host daemon. Trusted networks
+      # only; switch back to `--auth password` if that is not acceptable.
+      - --auth
+      - none
       # Dev/test harness: the only content the container can reach is the
       # mounted git tree + this file, so treat the session as trusted rather
       # than prompting — and rather than silently disabling every user
