@@ -767,6 +767,11 @@ The rules above are implemented here (paths relative to the meta repo):
   `_submodules/vscode-hacker-markdown/tests/integration/narrow_table_ix.ts` —
   write-up:
   `_submodules/vscode-hacker-markdown/docs/plans/2026/11/04/2026-11-04-narrow-preview-wide-tables.md`
+- vscode-free resolution module + check script (font settings inheritance:
+  extension setting → `terminal.integrated.fontFamily` → `editor.fontFamily`,
+  pinned by `bun tests/units/fonts_check.ts`):
+  `_submodules/vscode-hacker-markdown/src/fonts.ts` — write-up:
+  `_submodules/vscode-hacker-markdown/docs/plans/2026/11/19/2026-11-19-configurable-preview-fonts.md`
 - REST control extension + its own committed suite:
   `_submodules/vscode-hacker-rest-control/`
   (`docs/important/testing/how-to-test.md`; `tests/playwright/` — the extension is both
