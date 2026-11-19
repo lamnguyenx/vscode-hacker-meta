@@ -131,9 +131,19 @@ curl -s http://127.0.0.1:9324/json/version
 curl -sk -o /dev/null -w '%{http_code}\n' https://127.0.0.1:9325/
 ```
 
-See the design log
+If the canvas page loads but the desktop stays blank and CDP answers `502`, the
+container's `labwc` never started. Check `df -h /` on the host and
+`docker logs vscode-hacker-meta-chromium-1`: when the root filesystem is full,
+Xwayland cannot create `/tmp/.X11-unix`, so Chromium never launches. Free space
+(e.g. `docker builder prune`) and recreate the container. The compose service
+bind-mounts the git-ignored `exp/tmp` over `/tmp`, so this particular failure no
+longer depends on the host root having free space.
+
+See the design logs
 [`2026-11-04-headed-chromium-and-make-info.md`](../../plans/2026/11/04/2026-11-04-headed-chromium-and-make-info.md)
-for the port/CDP/auth/policy trials and lessons.
+for the port/CDP/auth/policy trials, and
+[`2026-11-19-chromium-canvas-host-disk-full.md`](../../plans/2026/11/19/2026-11-19-chromium-canvas-host-disk-full.md)
+for the blank-canvas / full-disk failure and the `exp/tmp` mount.
 
 ## code-server
 

@@ -128,10 +128,17 @@ services:
         --ignore-certificate-errors
         --hide-crash-restore-bubble
         about:blank
+    # Keep /tmp off the host root filesystem. Xwayland creates
+    # /tmp/.X11-unix and Selkies unpacks its web assets into /tmp; when the
+    # host root is full, labwc dies in a loop and the canvas shows a blank
+    # desktop (with CDP answering 502). `exp/` is git-ignored and lives on
+    # the larger /home filesystem.
     volumes:
       # Browser profile + canvas certificate/config. Survives recreation;
       # delete this directory to start from a clean browser.
       - ./exp/chromium:/config
+      # Container /tmp (X11 sockets, Selkies web extraction).
+      - ./exp/tmp:/tmp
       # CDP front door on 0.0.0.0:9324 -> Chromium's 127.0.0.1:9222.
       # Edit cdp.conf, then `docker compose restart chromium`.
       - ./docker/chromium/cdp.conf:/etc/nginx/conf.d/cdp.conf:ro

@@ -86,5 +86,5 @@ the topic docs.
 
 ## Elsewhere
 
-- Dated design logs live under [`docs/plans/`](docs/plans/); the most recent is [2026-11-19 Hacker Markdown configurable preview fonts](docs/plans/2026/11/19/2026-11-19-hacker-markdown-configurable-preview-fonts.md).
+- Dated design logs live under [`docs/plans/`](docs/plans/); the most recent are [2026-11-19 Blank canvas: a full host disk starved Chromium's `/tmp`](docs/plans/2026/11/19/2026-11-19-chromium-canvas-host-disk-full.md) and [2026-11-19 Hacker Markdown configurable preview fonts](docs/plans/2026/11/19/2026-11-19-hacker-markdown-configurable-preview-fonts.md).
 - Per-extension docs live in each submodule's `README.md` and `docs/important/` (see the table above).

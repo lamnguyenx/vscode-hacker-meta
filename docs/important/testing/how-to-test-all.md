@@ -83,6 +83,10 @@ CDP_PORT=9324 make -C _submodules/vscode-hacker-terminal-enhanced test-e2e
   trusted network; the canvas desktop has a terminal with passwordless `sudo`.
 - `make info` prints the live ports, container state, and extension versions;
   it is the first command to run when a test cannot find its browser.
+- If the canvas loads but the desktop is blank and CDP answers `502`, check
+  `df -h /` on the host. A full root filesystem stops Xwayland from creating
+  `/tmp/.X11-unix`; free space and recreate the browser. See the
+  [2026-11-19 design log](../../plans/2026/11/19/2026-11-19-chromium-canvas-host-disk-full.md).
 - Details:
   [`dev-code-on-nuc-test-on-pp.md#local-alternative-the-chromium-compose-service`](../dev-env/dev-code-on-nuc-test-on-pp.md#local-alternative-the-chromium-compose-service)
   and the [`2026-11-04` design log](../../plans/2026/11/04/2026-11-04-headed-chromium-and-make-info.md).

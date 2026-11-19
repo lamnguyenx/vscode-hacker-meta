@@ -5,6 +5,17 @@
 - `_submodules/` contains the extension repos as git submodules. This is the single source of truth; edit them here.
 - `_refs/` contains read-only external references. Do not modify `_refs/vscode` and `_refs/code-server`.
 
+## Documentation placement
+
+- Write docs in the repo that owns the change. A compose/harness change belongs
+  in this repo; do not copy it into `_submodules/*` just because those
+  extensions run on that harness.
+- "Every module we touched" means modules with actual file changes this
+  session. Check `git status` in this repo and each submodule before writing;
+  leave clean submodules clean.
+- If a change genuinely spans repos, put the full design log in the repo that
+  owns the code and only cross-link from the others.
+
 ## Dev environment & testing
 
 - The docker code-server (compose service `code-server`, CDP `9024` / HTTP
